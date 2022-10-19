@@ -49,7 +49,7 @@ export_row = [
 ]
 cur_page = 0
 image_elem = sg.Image()
-goto = sg.InputText(str(cur_page + 1), size=(5, 1))
+goto = sg.InputText(str(cur_page + 1), size=(5, 1), key='-SET PAGE-')
 
 # Full layout
 layout = [[
@@ -58,16 +58,16 @@ layout = [[
     sg.VSeparator(),
     sg.Column([
         [
-            sg.Button('Prev'),
-            sg.Button('Next'),
+            sg.Button('Prev', key='-PREV PAGE-'),
+            sg.Button('Next', key='-NEXT PAGE-'),
             sg.Text('Page:'),
             goto,
         ],
         [image_elem],
     ])
 ]]
-
-window = sg.Window('IFRC Keyword Searcher', layout)
+window = sg.Window('IFRC Keyword Searcher', layout, finalize=True)
+window['-SET PAGE-'].bind("<Return>", "_Enter")
 
 """
 Functions
@@ -76,6 +76,7 @@ Functions
 def loop_files_search_keywords(folderpath, keywords):
     global searching
     global keyword_results
+    global display_lists
     progress_bar = window['progress']
     percent = window['Percent']
     results_summary_text = window['-RESULTS SUMMARY-']
@@ -92,11 +93,13 @@ def loop_files_search_keywords(folderpath, keywords):
         # Search for keywords using PyMuPDF
         file_results = []
         file = fitz.open(os.path.join(folderpath, filename))
+        display_lists[filename] = [None]*len(file)
         for keyword in keywords:
             for pageno, page in enumerate(file):
                 page_instances = page.search_for(keyword)
                 file_results += [[id, filename, keyword, pageno] for id in range(len(keyword_instances), len(keyword_instances+page_instances))]
                 keyword_instances += page_instances
+        file.close()
 
         # Print the results to the table
         if file_results:
@@ -115,27 +118,16 @@ def loop_files_search_keywords(folderpath, keywords):
     window['-SEARCH FOR KEYWORDS-'].update('Search')
 
 
-def get_document_page(pno):
-    """
-    Return a PNG image for a document page.
-    """
-    dlist = dlist_tab[pno]
-    if not dlist:  # create if not yet there
-        dlist_tab[pno] = doc[pno].get_displaylist()
-        dlist = dlist_tab[pno]
-
-    pix = dlist.get_pixmap(alpha=False)
-    return pix.tobytes(output='png')  # return the PNG image
-
-
 """
 Create an event loop
 """
 # Create the event loop
 searching = False
+open_filename = None
 
 while True:
     event, values = window.read()
+    force_page = False
 
     if event == sg.WIN_CLOSED:
         searching = False
@@ -152,7 +144,7 @@ while True:
         if not values['-FOLDERNAME-'] or not values['-KEYWORDS-']:
             continue
 
-        # If searching, then cancel the search
+        # If searching already, then cancel the search
         if searching:
             searching = False
             window['-SEARCH FOR KEYWORDS-'].update('Search')
@@ -160,6 +152,7 @@ while True:
         # Else begin searching
         else:
             searching = True
+            display_lists = {}
             window['-SEARCH FOR KEYWORDS-'].update('Cancel')
             keyword_results = []
             results_summary = {'keywords': 0, 'documents': 0}
@@ -178,25 +171,52 @@ while True:
             thread = Thread(target=loop_files_search_keywords, args=(values['-FOLDERNAME-'], keywords))
             thread.start()
 
+    # Export the results
+    elif event=='-EXPORT RESULTS-':
+        export_filename = values['-EXPORT RESULTS-']
+        if export_filename:
+            keyword_results.to_csv(export_filename, index=False)
+
     # Display PDFs with keyword when clicked on in table
     elif event=='-RESULTS TABLE-':
         if keyword_results:
 
             # Get information on the selected row
             selected_filename = keyword_results[values[event][0]][1]
+            if selected_filename!=open_filename:
+                open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
+                open_filename = selected_filename
 
-            # Display the pdf at the correct position
-            pno = 0
-            doc = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
-            dlist = doc[pno].get_displaylist()
+            # Open the document, using the saved one if already got
+            cur_page = open_page = 0
+            update_page = True
+
+    # Change pages of the document
+    elif event=='-SET PAGE-'+'_Enter':
+        try:
+            cur_page = int(values['-SET PAGE-'])-1
+        except:
+            pass
+    elif event in ("-NEXT PAGE-",):
+        cur_page += 1
+    elif event in ("-PREV PAGE-",):
+        cur_page -= 1
+
+    # Update the document page if required
+    if open_filename is not None:
+        if cur_page > len(open_file)-1:
+            cur_page = len(open_file)-1
+        elif cur_page < 0:
+            cur_page = 0
+        if (cur_page!=open_page):
+            update_page = True
+        if update_page:
+            if not display_lists[open_filename][cur_page]:  # create if not yet there
+                display_lists[open_filename][cur_page] = open_file[cur_page].get_displaylist()
+            dlist = display_lists[open_filename][cur_page]
             pix = dlist.get_pixmap(alpha=False)
             image_elem.update(data=pix.tobytes(output='png'))
-
-    # Export the results
-    elif event=='-EXPORT RESULTS-':
-        export_filename = values['-EXPORT RESULTS-']
-        if export_filename:
-            keyword_results.to_csv(export_filename, index=False)
+            goto.update(str(cur_page + 1))
 
 
 window.close()
