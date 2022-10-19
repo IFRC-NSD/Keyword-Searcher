@@ -37,7 +37,7 @@ results_summary_row = [
 ]
 results_table_row = [
     sg.Table(values=[[]],
-             headings=['File', 'Keyword', 'Text extract'],
+             headings=['ID', 'File', 'Keyword', 'Page'],
              size=(100, 20),
              key="-RESULTS TABLE-",
              expand_y=True,
@@ -64,7 +64,7 @@ window = sg.Window('IFRC Keyword Searcher', layout)
 Functions
 """
 # Loop through files in a folder and search for keywords
-def loop_files_search_keywords(folderpath):
+def loop_files_search_keywords(folderpath, keywords):
     global searching
     global keyword_results
     progress_bar = window['progress']
@@ -73,23 +73,27 @@ def loop_files_search_keywords(folderpath):
 
     # Loop through the files in the folder
     files_to_search = sorted(os.listdir(folderpath))
+    keyword_instances = []
     for i, filename in enumerate(files_to_search):
 
         # Break if the search has been stopped
         if not searching:
             break
 
-        # Extract the document content and search for keywords
-        file_path = os.path.join(folderpath, filename)
-        #file_content = parser.from_file(file_path)['content']
-
-        results = [[filename, 'alex', 'alex alex alex']] # GET THE KEYWORD RESULTS
+        # Search for keywords using PyMuPDF
+        file_results = []
+        file = fitz.open(os.path.join(folderpath, filename))
+        for keyword in keywords:
+            for pageno, page in enumerate(file):
+                page_instances = page.search_for(keyword)
+                file_results += [[id, filename, keyword, pageno] for id in range(len(keyword_instances), len(keyword_instances+page_instances))]
+                keyword_instances += page_instances
 
         # Print the results to the table
-        if results:
-            results_summary['keywords'] += len(results)
+        if file_results:
+            results_summary['keywords'] += len(file_results)
             results_summary['documents'] += 1
-            keyword_results += results
+            keyword_results += file_results
             results_summary_text.update(value=f'{results_summary["keywords"]} keywords found in {results_summary["documents"]} documents')
 
         # Update the progress bar
@@ -122,6 +126,8 @@ while True:
 
     # Search for keywords!
     elif event == '-SEARCH FOR KEYWORDS-':
+        if not values['-FOLDERNAME-'] or not values['-KEYWORDS-']:
+            continue
 
         # If searching, then cancel the search
         if searching:
@@ -146,7 +152,7 @@ while True:
             sg.user_settings_set_entry('-last foldername-', values['-FOLDERNAME-'])
 
             # Loop through files in the folder and search for keywords
-            thread = Thread(target=loop_files_search_keywords, args=(values['-FOLDERNAME-'],))
+            thread = Thread(target=loop_files_search_keywords, args=(values['-FOLDERNAME-'], keywords))
             thread.start()
 
     # Display PDFs with keyword when clicked on in table
