@@ -26,12 +26,11 @@ keywords_antiwords_row = [
     sg.Multiline('\n'.join(sg.user_settings_get_entry('-antiwords-', [])), size=(30, 5), key='-ANTIWORDS-')
 ]
 search_button = [
-    sg.Button('Search')
+    sg.Button('Search', key='-SEARCH FOR KEYWORDS-')
 ]
 progress_row = [
     sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
-    sg.Text("0 %", size=(4, 1), key='Percent'),
-    sg.Button("Pause", key='pause_keyword_searching')
+    sg.Text("0 %", size=(4, 1), key='Percent')
 ]
 results_summary_row = [
     sg.Text("", key='-RESULTS SUMMARY-'),
@@ -66,19 +65,19 @@ Functions
 """
 # Loop through files in a folder and search for keywords
 def loop_files_search_keywords(folderpath):
-    global stop_searching
-    global search_position
+    global searching
     global keyword_results
     progress_bar = window['progress']
     percent = window['Percent']
     results_summary_text = window['-RESULTS SUMMARY-']
 
     # Loop through the files in the folder
-    start_position = search_position
     files_to_search = sorted(os.listdir(folderpath))
-    for search_position in range(start_position, len(files_to_search)):
-        filename = files_to_search[search_position]
-        if stop_searching: break
+    for i, filename in enumerate(files_to_search):
+
+        # Break if the search has been stopped
+        if not searching:
+            break
 
         # Extract the document content and search for keywords
         file_path = os.path.join(folderpath, filename)
@@ -94,24 +93,25 @@ def loop_files_search_keywords(folderpath):
             results_summary_text.update(value=f'{results_summary["keywords"]} keywords found in {results_summary["documents"]} documents')
 
         # Update the progress bar
-        percent_completed = 100*(search_position+1)/len(files_to_search)
+        percent_completed = 100*(i+1)/len(files_to_search)
         percent.update(value=f'{round(percent_completed, 1)} %')
         progress_bar.update_bar(percent_completed)
 
     # Update the table
-    window['Search'].update(disabled=False)
     window['-RESULTS TABLE-'].update(keyword_results)
+    window['-SEARCH FOR KEYWORDS-'].update('Search')
 
 
 """
 Create an event loop
 """
 # Create the event loop
+searching = False
 while True:
     event, values = window.read()
 
     if event == sg.WIN_CLOSED:
-        stop_searching = True
+        searching = False
         break
 
     # Clear the search documents folder history
@@ -121,40 +121,31 @@ while True:
         window['-FOLDERNAME-'].update(values=[], value='')
 
     # Search for keywords!
-    elif event == 'Search':
+    elif event == '-SEARCH FOR KEYWORDS-':
 
-        # Refresh all variables and displays
-        window['Search'].update(disabled=True)
-        stop_searching = False
-        keyword_results = []
-        results_summary = {'keywords': 0, 'documents': 0}
-        window['pause_keyword_searching'].update('Pause')
-        window['-RESULTS TABLE-'].update([[]])
-        window['-RESULTS SUMMARY-'].update(value=f'0 keywords found in 0 documents')
+        # If searching, then cancel the search
+        if searching:
+            searching = False
+            window['-SEARCH FOR KEYWORDS-'].update('Search')
 
-        # Save the keywords, antiwords, and folder path for next time
-        keywords = [word.strip() for word in values['-KEYWORDS-'].split('\n') if word.strip()!='']
-        sg.user_settings_set_entry('-keywords-', list(set(keywords)))
-        antiwords = [word.strip() for word in values['-ANTIWORDS-'].split('\n') if word.strip()!='']
-        sg.user_settings_set_entry('-antiwords-', list(set(antiwords)))
-        sg.user_settings_set_entry('-foldernames-', list(set(sg.user_settings_get_entry('-foldernames-', []) + [values['-FOLDERNAME-'], ])))
-        sg.user_settings_set_entry('-last foldername-', values['-FOLDERNAME-'])
+        # Else begin searching
+        else:
+            searching = True
+            window['-SEARCH FOR KEYWORDS-'].update('Cancel')
+            keyword_results = []
+            results_summary = {'keywords': 0, 'documents': 0}
+            window['-RESULTS TABLE-'].update([[]])
+            window['-RESULTS SUMMARY-'].update(value=f'0 keywords found in 0 documents')
 
-        # Initiate the keywor searcher class
-        search_position = 0
-        print(values['-FOLDERNAME-'])
-        thread = Thread(target=loop_files_search_keywords, args=(values['-FOLDERNAME-'],))
-        thread.start()
+            # Save the keywords, antiwords, and folder path for next time
+            keywords = [word.strip() for word in values['-KEYWORDS-'].split('\n') if word.strip()!='']
+            sg.user_settings_set_entry('-keywords-', list(set(keywords)))
+            antiwords = [word.strip() for word in values['-ANTIWORDS-'].split('\n') if word.strip()!='']
+            sg.user_settings_set_entry('-antiwords-', list(set(antiwords)))
+            sg.user_settings_set_entry('-foldernames-', list(set(sg.user_settings_get_entry('-foldernames-', []) + [values['-FOLDERNAME-'], ])))
+            sg.user_settings_set_entry('-last foldername-', values['-FOLDERNAME-'])
 
-    # Pause keyword searching
-    elif event=='pause_keyword_searching':
-        stop_searching = not stop_searching
-        if stop_searching: # Pause the search
-            window['Search'].update(disabled=False)
-            window['pause_keyword_searching'].update('Resume')
-        else: # Resume the search
-            window['Search'].update(disabled=True)
-            window['pause_keyword_searching'].update('Pause')
+            # Loop through files in the folder and search for keywords
             thread = Thread(target=loop_files_search_keywords, args=(values['-FOLDERNAME-'],))
             thread.start()
 
@@ -163,9 +154,9 @@ while True:
         if keyword_results:
 
             # Get information on the selected row
-            selected_filename = keyword_results['file'].iloc[values[event][0]]
-            selected_text = keyword_results['text_block'].iloc[values[event][0]]
-            selected_filepath = os.path.join(values['-FOLDERNAME-'], selected_filename)
+            selected_filename = keyword_results[values[event][0]]
+            selected_text = keyword_results[values[event][0]]
+            #selected_filepath = os.path.join(values['-FOLDERNAME-'], selected_filename)
 
             # Display the pdf at the correct position
             window['-RESULT FILENAME-'].update(selected_filename)
