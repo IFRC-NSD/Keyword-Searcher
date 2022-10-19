@@ -47,14 +47,23 @@ export_row = [
     sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
     sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))
 ]
+cur_page = 0
+image_elem = sg.Image()
+goto = sg.InputText(str(cur_page + 1), size=(5, 1))
+
 # Full layout
 layout = [[
     [select_documents_row, keywords_antiwords_row, search_button, progress_row],
     sg.Column([results_summary_row, results_table_row, export_row]),
     sg.VSeparator(),
     sg.Column([
-        [sg.Text("", key='-RESULT FILENAME-')],
-        [sg.Text("", key='-RESULT TEXT-', size=(100,20))]
+        [
+            sg.Button('Prev'),
+            sg.Button('Next'),
+            sg.Text('Page:'),
+            goto,
+        ],
+        [image_elem],
     ])
 ]]
 
@@ -106,11 +115,25 @@ def loop_files_search_keywords(folderpath, keywords):
     window['-SEARCH FOR KEYWORDS-'].update('Search')
 
 
+def get_document_page(pno):
+    """
+    Return a PNG image for a document page.
+    """
+    dlist = dlist_tab[pno]
+    if not dlist:  # create if not yet there
+        dlist_tab[pno] = doc[pno].get_displaylist()
+        dlist = dlist_tab[pno]
+
+    pix = dlist.get_pixmap(alpha=False)
+    return pix.tobytes(output='png')  # return the PNG image
+
+
 """
 Create an event loop
 """
 # Create the event loop
 searching = False
+
 while True:
     event, values = window.read()
 
@@ -160,13 +183,14 @@ while True:
         if keyword_results:
 
             # Get information on the selected row
-            selected_filename = keyword_results[values[event][0]]
-            selected_text = keyword_results[values[event][0]]
-            #selected_filepath = os.path.join(values['-FOLDERNAME-'], selected_filename)
+            selected_filename = keyword_results[values[event][0]][1]
 
             # Display the pdf at the correct position
-            window['-RESULT FILENAME-'].update(selected_filename)
-            window['-RESULT TEXT-'].update(selected_text)
+            pno = 0
+            doc = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
+            dlist = doc[pno].get_displaylist()
+            pix = dlist.get_pixmap(alpha=False)
+            image_elem.update(data=pix.tobytes(output='png'))
 
     # Export the results
     elif event=='-EXPORT RESULTS-':
