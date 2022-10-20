@@ -57,7 +57,7 @@ layout = [
                 sg.Text('', key='-TOTAL PAGES-'),
             ],
             [image_elem],
-        ])
+        ], key='-DOC VIEWER COLUMN-', visible=False)
     ]
 ]
 window = sg.Window('IFRC Keyword Searcher',
@@ -77,7 +77,6 @@ def loop_files_search_keywords(folderpath, keywords):
     global searching
     global keyword_results
     global keyword_instances
-    global display_lists
     progress_bar = window['progress']
     percent = window['Percent']
     results_summary_text = window['-RESULTS SUMMARY-']
@@ -95,7 +94,6 @@ def loop_files_search_keywords(folderpath, keywords):
         # Search for keywords using PyMuPDF
         file_results = []
         file = fitz.open(os.path.join(folderpath, filename))
-        display_lists = [None]*len(file)
         for pageno, page in enumerate(file):
             keyword_instances[filename][pageno] = []
             page_keywords = []
@@ -132,9 +130,9 @@ Create an event loop
 """
 # Create the event loop
 searching = False
-open_filename = open_page = open_file = None
 doc_viewer_hover = False
 display_lists = []
+view_doc_viewer = False
 
 while True:
     event, values = window.read()
@@ -163,6 +161,11 @@ while True:
         # Else begin searching
         else:
             searching = True
+            open_filename = open_page = open_file = None # Refresh to set everything as closed
+            if view_doc_viewer:
+                view_doc_viewer = False
+                window['-DOC VIEWER COLUMN-'].update(visible=view_doc_viewer)
+                window.refresh()
             window['-SEARCH FOR KEYWORDS-'].update('Cancel')
             keyword_results = []
             results_summary = {'keywords': 0, 'documents': 0}
@@ -202,6 +205,7 @@ while True:
                     open_file.close()
                 open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
                 open_filename = selected_filename
+                display_lists = [None]*len(open_file)
 
                 # Set the total pages text
                 window['-TOTAL PAGES-'].update(f'Total pages: {len(open_file)}')
@@ -241,6 +245,9 @@ while True:
 
         # Open the page of the document if it has been updated
         if update_page:
+            if not view_doc_viewer:
+                window['-DOC VIEWER COLUMN-'].update(visible=True)
+                view_doc_viewer = True
             if not display_lists[new_page]:  # create if not yet there
                 display_lists[new_page] = open_file[new_page].get_displaylist()
             dlist = display_lists[new_page]
