@@ -48,7 +48,7 @@ export_row = [
     sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))
 ]
 cur_page = 0
-image_elem = sg.Image()
+image_elem = sg.Image(key='-DOC VIEWER-')
 goto = sg.InputText(str(cur_page + 1), size=(5, 1), key='-SET PAGE-')
 
 # Full layout
@@ -67,7 +67,8 @@ layout = [[
     ])
 ]]
 window = sg.Window('IFRC Keyword Searcher', layout, finalize=True)
-window['-SET PAGE-'].bind("<Return>", "_Enter")
+window['-SET PAGE-'].bind("<Return>", "_enter")
+window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 
 """
 Functions
@@ -93,7 +94,7 @@ def loop_files_search_keywords(folderpath, keywords):
         # Search for keywords using PyMuPDF
         file_results = []
         file = fitz.open(os.path.join(folderpath, filename))
-        display_lists[filename] = [None]*len(file)
+        display_lists = [None]*len(file)
         for keyword in keywords:
             for pageno, page in enumerate(file):
                 page_instances = page.search_for(keyword)
@@ -124,6 +125,7 @@ Create an event loop
 # Create the event loop
 searching = False
 open_filename = None
+display_lists = []
 
 while True:
     event, values = window.read()
@@ -152,7 +154,6 @@ while True:
         # Else begin searching
         else:
             searching = True
-            display_lists = {}
             window['-SEARCH FOR KEYWORDS-'].update('Cancel')
             keyword_results = []
             results_summary = {'keywords': 0, 'documents': 0}
@@ -183,7 +184,7 @@ while True:
 
             # Get information on the selected row
             selected_filename = keyword_results[values[event][0]][1]
-            if selected_filename!=open_filename:
+            if selected_filename!=open_filename: # We click to open a new file
                 open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
                 open_filename = selected_filename
 
@@ -192,7 +193,7 @@ while True:
             update_page = True
 
     # Change pages of the document
-    elif event=='-SET PAGE-'+'_Enter':
+    elif event=='-SET PAGE-'+'_enter':
         try:
             cur_page = int(values['-SET PAGE-'])-1
         except:
@@ -211,9 +212,9 @@ while True:
         if (cur_page!=open_page):
             update_page = True
         if update_page:
-            if not display_lists[open_filename][cur_page]:  # create if not yet there
-                display_lists[open_filename][cur_page] = open_file[cur_page].get_displaylist()
-            dlist = display_lists[open_filename][cur_page]
+            if not display_lists[cur_page]:  # create if not yet there
+                display_lists[cur_page] = open_file[cur_page].get_displaylist()
+            dlist = display_lists[cur_page]
             pix = dlist.get_pixmap(alpha=False)
             image_elem.update(data=pix.tobytes(output='png'))
             goto.update(str(cur_page + 1))
