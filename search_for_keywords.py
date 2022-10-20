@@ -1,9 +1,9 @@
 import os
 import re
 import time
+from threading import Thread
 import pandas as pd
 import fitz
-from threading import Thread
 import PySimpleGUI as sg
 """
 GUI application to search for keywords in IFRC documents.
@@ -13,58 +13,58 @@ GUI application to search for keywords in IFRC documents.
 """
 Define the window layout
 """
-select_documents_row = [
-    sg.Text('Select a folder with documents to search'),
-    sg.Combo(sorted(sg.user_settings_get_entry('-foldernames-', [])), default_value=sg.user_settings_get_entry('-last foldername-', ''), size=(50, 1), key='-FOLDERNAME-'),
-    sg.FolderBrowse(),
-    sg.B('Clear History')
-]
-keywords_antiwords_row = [
-    sg.Text('Enter keywords'),
-    sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(30, 5), key='-KEYWORDS-'),
-]
-search_button = [
-    sg.Button('Search', key='-SEARCH FOR KEYWORDS-')
-]
-progress_row = [
-    sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
-    sg.Text("0 %", size=(4, 1), key='Percent')
-]
-results_summary_row = [
-    sg.Text("", key='-RESULTS SUMMARY-'),
-]
-results_table_row = [
-    sg.Table(values=[[]],
-             headings=['File', 'Page', 'Keyword', 'Count'],
-             size=(100, 20),
-             key="-RESULTS TABLE-",
-             expand_y=True,
-             enable_events=True)
-]
-export_row = [
-    sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
-    sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))
-]
+sg.change_look_and_feel('Default1')
 new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-')
 goto = sg.InputText(str(new_page + 1), size=(5, 1), key='-SET PAGE-')
 
 # Full layout
-layout = [[
-    sg.Column([select_documents_row, keywords_antiwords_row, search_button, progress_row, results_summary_row, results_table_row, export_row]),
-    sg.VSeparator(),
-    sg.Column([
-        [
-            sg.Button('Prev', key='-PREV PAGE-'),
-            sg.Button('Next', key='-NEXT PAGE-'),
-            sg.Text('Page:'),
-            goto,
-            sg.Text('', key='-TOTAL PAGES-'),
-        ],
-        [image_elem],
-    ])
-]]
-window = sg.Window('IFRC Keyword Searcher', layout, return_keyboard_events=True, finalize=True)
+layout = [
+    [
+        sg.Image('./static/ifrc_logo_small.png'),
+        sg.VSeparator(),
+        sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
+    ],
+    [
+        sg.Column([
+            [sg.Text('Select a folder with documents to search')],
+            [sg.Combo(sorted(sg.user_settings_get_entry('-foldernames-', [])), default_value=sg.user_settings_get_entry('-last foldername-', ''), size=(35, 1), key='-FOLDERNAME-')],
+            [sg.FolderBrowse(), sg.B('Clear History')],
+            [sg.Text('Enter keywords')],
+            [sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(35, 5), key='-KEYWORDS-')],
+            [sg.Button('Search', key='-SEARCH FOR KEYWORDS-')],
+            [sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
+            sg.Text("0 %", size=(4, 1), key='Percent')],
+            [sg.Text("", key='-RESULTS SUMMARY-')],
+            [sg.Table(values=[[]],
+                      headings=['File', 'Page', 'Keyword', 'Count'],
+                      size=(35, 35),
+                      auto_size_columns=False,
+                      max_col_width=10,
+                      def_col_width=10,
+                      key="-RESULTS TABLE-",
+                      enable_events=True)],
+            [sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
+            sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))]
+        ]),
+        sg.VSeparator(),
+        sg.Column([
+            [
+                sg.Button('Prev', key='-PREV PAGE-'),
+                sg.Button('Next', key='-NEXT PAGE-'),
+                sg.Text('Page:'),
+                goto,
+                sg.Text('', key='-TOTAL PAGES-'),
+            ],
+            [image_elem],
+        ])
+    ]
+]
+window = sg.Window('IFRC Keyword Searcher',
+                   layout,
+                   return_keyboard_events=True,
+                   finalize=True,
+                   resizable=True)
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
@@ -106,7 +106,8 @@ def loop_files_search_keywords(folderpath, keywords):
                     page_keywords.append(keyword)
                     page_instances += len(instances)
                     keyword_instances[filename][pageno] += instances
-            file_results.append([filename, pageno+1, ', '.join(page_keywords), page_instances])
+            if page_keywords:
+                file_results.append([filename, pageno+1, ', '.join(page_keywords), page_instances])
         file.close()
 
         # Print the results to the table
