@@ -59,13 +59,15 @@ layout = [[
             sg.Button('Next', key='-NEXT PAGE-'),
             sg.Text('Page:'),
             goto,
+            sg.Text('', key='-TOTAL PAGES-'),
         ],
         [image_elem],
     ])
 ]]
-window = sg.Window('IFRC Keyword Searcher', layout, finalize=True)
+window = sg.Window('IFRC Keyword Searcher', layout, return_keyboard_events=True, finalize=True)
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
+window['-DOC VIEWER-'].bind('<Leave>', '_away')
 
 """
 Functions
@@ -130,6 +132,7 @@ Create an event loop
 # Create the event loop
 searching = False
 open_filename = open_page = open_file = None
+doc_viewer_hover = False
 display_lists = []
 
 while True:
@@ -183,7 +186,7 @@ while True:
 
     # Display PDFs with keyword when clicked on in table
     elif event=='-RESULTS TABLE-':
-        if keyword_results:
+        if keyword_results and values[event]:
 
             # Get the filename, keyword, and page from the selected row
             selected_row = keyword_results[values[event][0]]
@@ -199,6 +202,9 @@ while True:
                 open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
                 open_filename = selected_filename
 
+                # Set the total pages text
+                window['-TOTAL PAGES-'].update(f'Total pages: {len(open_file)}')
+
                 # Add highlighting found by previous keyword searching to each page in the file
                 for pageno in keyword_instances[selected_filename]:
                     for inst in keyword_instances[selected_filename][pageno]:
@@ -213,6 +219,14 @@ while True:
     elif event in ("-NEXT PAGE-",):
         new_page += 1
     elif event in ("-PREV PAGE-",):
+        new_page -= 1
+    elif event == "-DOC VIEWER-_hover":
+        doc_viewer_hover = True
+    elif event == "-DOC VIEWER-_away":
+        doc_viewer_hover = False
+    elif (event == "MouseWheel:Down") and doc_viewer_hover:
+        new_page += 1
+    elif (event == "MouseWheel:Up") and doc_viewer_hover:
         new_page -= 1
 
     # Update the document page if required
