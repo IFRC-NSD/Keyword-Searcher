@@ -22,8 +22,6 @@ select_documents_row = [
 keywords_antiwords_row = [
     sg.Text('Enter keywords'),
     sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(30, 5), key='-KEYWORDS-'),
-    sg.Text('Enter antiwords'),
-    sg.Multiline('\n'.join(sg.user_settings_get_entry('-antiwords-', [])), size=(30, 5), key='-ANTIWORDS-')
 ]
 search_button = [
     sg.Button('Search', key='-SEARCH FOR KEYWORDS-')
@@ -53,8 +51,7 @@ goto = sg.InputText(str(new_page + 1), size=(5, 1), key='-SET PAGE-')
 
 # Full layout
 layout = [[
-    [select_documents_row, keywords_antiwords_row, search_button, progress_row],
-    sg.Column([results_summary_row, results_table_row, export_row]),
+    sg.Column([select_documents_row, keywords_antiwords_row, search_button, progress_row, results_summary_row, results_table_row, export_row]),
     sg.VSeparator(),
     sg.Column([
         [
@@ -168,11 +165,9 @@ while True:
             window['-RESULTS TABLE-'].update([[]])
             window['-RESULTS SUMMARY-'].update(value=f'0 keywords found in 0 documents')
 
-            # Save the keywords, antiwords, and folder path for next time
+            # Save the keywords, and folder path for next time
             keywords = [word.strip() for word in values['-KEYWORDS-'].split('\n') if word.strip()!='']
             sg.user_settings_set_entry('-keywords-', list(set(keywords)))
-            antiwords = [word.strip() for word in values['-ANTIWORDS-'].split('\n') if word.strip()!='']
-            sg.user_settings_set_entry('-antiwords-', list(set(antiwords)))
             sg.user_settings_set_entry('-foldernames-', list(set(sg.user_settings_get_entry('-foldernames-', []) + [values['-FOLDERNAME-'], ])))
             sg.user_settings_set_entry('-last foldername-', values['-FOLDERNAME-'])
 
@@ -207,7 +202,6 @@ while True:
                 # Add highlighting found by previous keyword searching to each page in the file
                 for pageno in keyword_instances[selected_filename]:
                     for inst in keyword_instances[selected_filename][pageno]:
-                        print(pageno)
                         open_file[pageno].add_highlight_annot(inst)
 
     # Change pages of the document
