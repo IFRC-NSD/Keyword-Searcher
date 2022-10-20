@@ -37,7 +37,7 @@ results_summary_row = [
 ]
 results_table_row = [
     sg.Table(values=[[]],
-             headings=['ID', 'File', 'Keyword', 'Page'],
+             headings=['File', 'Page', 'Keyword', 'Count'],
              size=(100, 20),
              key="-RESULTS TABLE-",
              expand_y=True,
@@ -47,9 +47,9 @@ export_row = [
     sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
     sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))
 ]
-cur_page = 0
+new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-')
-goto = sg.InputText(str(cur_page + 1), size=(5, 1), key='-SET PAGE-')
+goto = sg.InputText(str(new_page + 1), size=(5, 1), key='-SET PAGE-')
 
 # Full layout
 layout = [[
@@ -77,6 +77,7 @@ Functions
 def loop_files_search_keywords(folderpath, keywords):
     global searching
     global keyword_results
+    global keyword_instances
     global display_lists
     progress_bar = window['progress']
     percent = window['Percent']
@@ -84,8 +85,9 @@ def loop_files_search_keywords(folderpath, keywords):
 
     # Loop through the files in the folder
     files_to_search = sorted(os.listdir(folderpath))
-    keyword_instances = []
+    keyword_instances = {}
     for i, filename in enumerate(files_to_search):
+        keyword_instances[filename] = {}
 
         # Break if the search has been stopped
         if not searching:
@@ -95,11 +97,17 @@ def loop_files_search_keywords(folderpath, keywords):
         file_results = []
         file = fitz.open(os.path.join(folderpath, filename))
         display_lists = [None]*len(file)
-        for keyword in keywords:
-            for pageno, page in enumerate(file):
-                page_instances = page.search_for(keyword)
-                file_results += [[id, filename, keyword, pageno] for id in range(len(keyword_instances), len(keyword_instances+page_instances))]
-                keyword_instances += page_instances
+        for pageno, page in enumerate(file):
+            keyword_instances[filename][pageno] = []
+            page_keywords = []
+            page_instances = 0
+            for keyword in keywords:
+                instances = page.search_for(keyword)
+                if instances:
+                    page_keywords.append(keyword)
+                    page_instances += len(instances)
+                    keyword_instances[filename][pageno] += instances
+            file_results.append([filename, pageno+1, ', '.join(page_keywords), page_instances])
         file.close()
 
         # Print the results to the table
@@ -124,7 +132,7 @@ Create an event loop
 """
 # Create the event loop
 searching = False
-open_filename = None
+open_filename = open_page = open_file = None
 display_lists = []
 
 while True:
@@ -182,42 +190,55 @@ while True:
     elif event=='-RESULTS TABLE-':
         if keyword_results:
 
-            # Get information on the selected row
-            selected_filename = keyword_results[values[event][0]][1]
-            if selected_filename!=open_filename: # We click to open a new file
+            # Get the filename, keyword, and page from the selected row
+            selected_row = keyword_results[values[event][0]]
+            selected_filename = selected_row[0]
+            new_page = selected_row[1]-1
+            selected_keyword = selected_row[2]
+
+            # Clicking to open a new file
+            if selected_filename!=open_filename:
+                update_page = True
+                if open_file:
+                    open_file.close()
                 open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
                 open_filename = selected_filename
 
-            # Open the document, using the saved one if already got
-            cur_page = open_page = 0
-            update_page = True
+                # Add highlighting found by previous keyword searching to each page in the file
+                for pageno in keyword_instances[selected_filename]:
+                    for inst in keyword_instances[selected_filename][pageno]:
+                        print(pageno)
+                        open_file[pageno].add_highlight_annot(inst)
 
     # Change pages of the document
     elif event=='-SET PAGE-'+'_enter':
         try:
-            cur_page = int(values['-SET PAGE-'])-1
+            new_page = int(values['-SET PAGE-'])-1
         except:
             pass
     elif event in ("-NEXT PAGE-",):
-        cur_page += 1
+        new_page += 1
     elif event in ("-PREV PAGE-",):
-        cur_page -= 1
+        new_page -= 1
 
     # Update the document page if required
     if open_filename is not None:
-        if cur_page > len(open_file)-1:
-            cur_page = len(open_file)-1
-        elif cur_page < 0:
-            cur_page = 0
-        if (cur_page!=open_page):
+        if new_page > len(open_file)-1:
+            new_page = len(open_file)-1
+        elif new_page < 0:
+            new_page = 0
+        if (new_page!=open_page):
             update_page = True
+
+        # Open the page of the document if it has been updated
         if update_page:
-            if not display_lists[cur_page]:  # create if not yet there
-                display_lists[cur_page] = open_file[cur_page].get_displaylist()
-            dlist = display_lists[cur_page]
+            if not display_lists[new_page]:  # create if not yet there
+                display_lists[new_page] = open_file[new_page].get_displaylist()
+            dlist = display_lists[new_page]
             pix = dlist.get_pixmap(alpha=False)
             image_elem.update(data=pix.tobytes(output='png'))
-            goto.update(str(cur_page + 1))
+            open_page = new_page # Set that the currently open page is the new page
+            goto.update(str(new_page + 1))
 
 
 window.close()
