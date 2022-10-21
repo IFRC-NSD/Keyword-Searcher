@@ -166,7 +166,7 @@ open_filename = None
 
 while True:
     event, values = window.read()
-    force_page = False
+    update_page = False
 
     if event == sg.WIN_CLOSED:
         searching = False
