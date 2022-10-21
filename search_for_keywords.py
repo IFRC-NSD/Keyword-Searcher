@@ -148,7 +148,8 @@ def loop_files_search_keywords(filepaths, keywords):
         percent.update(value=f'{round(percent_completed, 1)} %')
         progress_bar.update_bar(percent_completed)
 
-    # Update the table
+    # Update the table and set to not searching
+    searching = False
     window['-RESULTS TABLE-'].update(keyword_results)
     window['-SEARCH FOR KEYWORDS-'].update('Search')
 
