@@ -163,6 +163,7 @@ def loop_files_search_keywords(filepaths, keywords):
 Create an event loop
 """
 # Create the event loop
+keyword_results = keyword_instances = None
 searching = False
 doc_viewer_hover = False
 display_lists = []
@@ -225,16 +226,23 @@ while True:
     elif event=='-EXPORT RESULTS-':
         export_filename = values['-EXPORT RESULTS-']
         if export_filename:
-            results_df = pd.DataFrame(data=keyword_results, columns=results_headers)
-            results_df.to_csv(export_filename, index=False)
-            window['-SAVE MESSAGE-'].update(value='Results saved successfully', visible=True)
+            if keyword_results:
+                results_df = pd.DataFrame(data=keyword_results, columns=results_headers)
+                results_df.to_csv(export_filename, index=False)
+                window['-SAVE MESSAGE-'].update(value='Results saved successfully', visible=True)
     elif event=='-SAVE KEYWORD DOCUMENTS-':
         export_foldername = values['-SAVE KEYWORD DOCUMENTS-']
         if export_foldername:
-            for keyword_document in keyword_instances.keys():
-                shutil.copyfile(os.path.join(values['-FOLDERNAME-'], keyword_document),
-                                os.path.join(export_foldername, keyword_document))
-            window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
+            if keyword_instances is not None:
+                if keyword_instances.keys():
+                    # Loop through the documents containing keywords, applying highlighting, and save
+                    for document_name in keyword_instances.keys():
+                        keyword_document = fitz.open(os.path.join(values['-FOLDERNAME-'], document_name))
+                        for pageno in keyword_instances[document_name]:
+                            for inst in keyword_instances[document_name][pageno]:
+                                keyword_document[pageno].add_highlight_annot(inst)
+                        keyword_document.save(os.path.join(export_foldername, document_name))
+                    window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
 
     # Display PDFs with keyword when clicked on in table
     elif event=='-RESULTS TABLE-':
