@@ -3,6 +3,8 @@ import re
 import time
 import shutil
 import pathlib
+import tempfile
+import webbrowser
 from threading import Thread
 import pandas as pd
 import fitz
@@ -76,10 +78,28 @@ window = sg.Window('IFRC Keyword Searcher',
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
+window['-RESULTS TABLE-'].bind('<Double-Button-1>', '_double_click')
+window['-RESULTS TABLE-'].bind("<Return>", "_enter")
 
 """
 Functions
 """
+def highlight_document(file, keyword_instances):
+    """
+    Highlight keywords in a fitz file, looping per page.
+
+    Parameters
+    ----------
+    file : fitz file (required)
+
+    keyword_instances (required)
+        Dictionary mapping pages to lists of fitz instances.
+    """
+    for pageno in keyword_instances:
+        for inst in keyword_instances[pageno]:
+            file[pageno].add_highlight_annot(inst)
+    return file
+
 # Loop through files in a folder and search for keywords
 def loop_files_search_keywords(filepaths, keywords):
     """
@@ -169,6 +189,7 @@ doc_viewer_hover = False
 display_lists = []
 view_doc_viewer = False
 open_filename = None
+temp_pdf = None
 
 while True:
     event, values = window.read()
@@ -238,9 +259,7 @@ while True:
                     # Loop through the documents containing keywords, applying highlighting, and save
                     for document_name in keyword_instances.keys():
                         keyword_document = fitz.open(os.path.join(values['-FOLDERNAME-'], document_name))
-                        for pageno in keyword_instances[document_name]:
-                            for inst in keyword_instances[document_name][pageno]:
-                                keyword_document[pageno].add_highlight_annot(inst)
+                        keyword_document = highlight_document(keyword_instances=keyword_instances[document_name], file=keyword_document)
                         keyword_document.save(os.path.join(export_foldername, document_name))
                     window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
 
@@ -270,9 +289,31 @@ while True:
                 window['-TOTAL PAGES-'].update(f'Total pages: {total_pages}')
 
                 # Add highlighting found by previous keyword searching to each page in the file
-                for pageno in keyword_instances[selected_filename]:
-                    for inst in keyword_instances[selected_filename][pageno]:
-                        open_file[pageno].add_highlight_annot(inst)
+                open_file = highlight_document(keyword_instances=keyword_instances[selected_filename],
+                                               file=open_file)
+
+    # Double clicking a row in the results table should open the file
+    elif event in('-RESULTS TABLE-_double_click', '-RESULTS TABLE-_enter'):
+        if keyword_results and values['-RESULTS TABLE-']:
+
+            # Get information on the selected row from the table
+            selected_row = keyword_results[values['-RESULTS TABLE-'][0]]
+            selected_filename = selected_row[0]
+            selected_page = selected_row[1]-1
+
+            # Open the document, apply highlighting, and open
+            highlighted_doc = highlight_document(keyword_instances=keyword_instances[selected_filename],
+                                                 file=fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename)))
+            temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf')
+            highlighted_doc.save(temp_pdf.name)
+
+            # Try to open the file at the right page
+            try:
+                open_path = pathlib.Path(temp_pdf.name).as_uri()
+                webbrowser.open(f'{open_path}#page={selected_page}')
+            except Exception as err:
+                os.startfile(temp_pdf.name)
+            temp_pdf.close()
 
     # Change pages of the document
     elif event=='-SET PAGE-'+'_enter':
