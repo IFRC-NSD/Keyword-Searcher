@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import shutil
 import pathlib
 from threading import Thread
 import pandas as pd
@@ -18,6 +19,7 @@ sg.change_look_and_feel('Default1')
 new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-', expand_x=True, expand_y=True)
 goto = sg.InputText(str(new_page + 1), size=(5, 1), key='-SET PAGE-')
+results_headers = ['File', 'Page', 'Keyword', 'Count']
 
 # Full layout
 layout = [
@@ -39,7 +41,7 @@ layout = [
             sg.Text("0 %", size=(4, 1), key='Percent')],
             [sg.Text("", key='-RESULTS SUMMARY-')],
             [sg.Table(values=[[]],
-                      headings=['File', 'Page', 'Keyword', 'Count'],
+                      headings=results_headers,
                       auto_size_columns=False,
                       max_col_width=10,
                       def_col_width=10,
@@ -47,7 +49,10 @@ layout = [
                       enable_events=True,
                       expand_y=True)],
             [sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
-            sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))]
+            sg.FileSaveAs('Save results', target='-EXPORT RESULTS-', file_types=(("CSV Files", "*.csv"),)),
+            sg.InputText('', do_not_clear=False, visible=False, key='-SAVE KEYWORD DOCUMENTS-', enable_events=True),
+            sg.FolderBrowse('Save all documents containing keywords', target='-SAVE KEYWORD DOCUMENTS-')],
+            [sg.Text('', key='-SAVE MESSAGE-', text_color='green')],
         ], expand_y=True),
         sg.VSeparator(),
         sg.Column([
@@ -197,6 +202,7 @@ while True:
                 window['-DOC VIEWER COLUMN-'].update(visible=view_doc_viewer)
                 window.refresh()
             window['-SEARCH WARNING-'].update(visible=False, value='')
+            window['-SAVE MESSAGE-'].update(visible=False, value='')
             window['-SEARCH FOR KEYWORDS-'].update('Cancel')
             keyword_results = []
             results_summary = {'keywords': 0, 'documents': 0}
@@ -215,11 +221,20 @@ while True:
             thread = Thread(target=loop_files_search_keywords, args=(filepaths_to_search, keywords))
             thread.start()
 
-    # Export the results
+    # Export the results or save all documents containing keywords
     elif event=='-EXPORT RESULTS-':
         export_filename = values['-EXPORT RESULTS-']
         if export_filename:
-            keyword_results.to_csv(export_filename, index=False)
+            results_df = pd.DataFrame(data=keyword_results, columns=results_headers)
+            results_df.to_csv(export_filename, index=False)
+            window['-SAVE MESSAGE-'].update(value='Results saved successfully', visible=True)
+    elif event=='-SAVE KEYWORD DOCUMENTS-':
+        export_foldername = values['-SAVE KEYWORD DOCUMENTS-']
+        if export_foldername:
+            for keyword_document in keyword_instances.keys():
+                shutil.copyfile(os.path.join(values['-FOLDERNAME-'], keyword_document),
+                                os.path.join(export_foldername, keyword_document))
+            window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
 
     # Display PDFs with keyword when clicked on in table
     elif event=='-RESULTS TABLE-':
