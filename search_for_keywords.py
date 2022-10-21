@@ -74,7 +74,8 @@ window = sg.Window('IFRC Keyword Searcher',
                    layout,
                    return_keyboard_events=True,
                    finalize=True,
-                   resizable=True)
+                   resizable=True,
+                   icon=r'./static/icon.ico')
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
@@ -310,20 +311,21 @@ while True:
             # Try to open the file at the right page
             try:
                 open_path = pathlib.Path(temp_pdf.name).as_uri()
-                webbrowser.open(f'{open_path}#page={selected_page}')
+                webbrowser.open(f'{open_path}#page={selected_page}') # The page information is being stripped....
+                print(f'{open_path}#page={selected_page}')
             except Exception as err:
                 os.startfile(temp_pdf.name)
             temp_pdf.close()
 
     # Change pages of the document
-    elif event=='-SET PAGE-'+'_enter':
+    elif event=='-SET PAGE-_enter':
         try:
             new_page = int(values['-SET PAGE-'])-1
         except:
             pass
-    elif event in ("-NEXT PAGE-",):
+    elif event == "-NEXT PAGE-":
         new_page += 1
-    elif event in ("-PREV PAGE-",):
+    elif event == "-PREV PAGE-":
         new_page -= 1
     elif event == "-DOC VIEWER-_hover":
         doc_viewer_hover = True
