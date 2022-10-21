@@ -1,7 +1,5 @@
 import os
 import re
-import time
-import shutil
 import pathlib
 import tempfile
 import webbrowser
@@ -190,7 +188,8 @@ doc_viewer_hover = False
 display_lists = []
 view_doc_viewer = False
 open_filename = None
-temp_pdf = None
+temp_dir = None
+
 
 while True:
     event, values = window.read()
@@ -305,17 +304,17 @@ while True:
             # Open the document, apply highlighting, and open
             highlighted_doc = highlight_document(keyword_instances=keyword_instances[selected_filename],
                                                  file=fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename)))
-            temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf')
-            highlighted_doc.save(temp_pdf.name)
+            if temp_dir is None:
+                temp_dir = tempfile.TemporaryDirectory()
+            temp_filepath = os.path.join(temp_dir.name, selected_filename)
+            highlighted_doc.save(temp_filepath)
 
             # Try to open the file at the right page
             try:
-                open_path = pathlib.Path(temp_pdf.name).as_uri()
+                open_path = pathlib.Path(temp_filepath).as_uri()
                 webbrowser.open(f'{open_path}#page={selected_page}') # The page information is being stripped....
-                print(f'{open_path}#page={selected_page}')
             except Exception as err:
-                os.startfile(temp_pdf.name)
-            temp_pdf.close()
+                os.startfile(temp_filepath)
 
     # Change pages of the document
     elif event=='-SET PAGE-_enter':
