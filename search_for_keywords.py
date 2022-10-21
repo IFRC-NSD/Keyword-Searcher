@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import pathlib
 from threading import Thread
 import pandas as pd
 import fitz
@@ -15,41 +16,43 @@ Define the window layout
 """
 sg.change_look_and_feel('Default1')
 new_page = 0
-image_elem = sg.Image(key='-DOC VIEWER-')
+image_elem = sg.Image(key='-DOC VIEWER-', expand_x=True, expand_y=True)
 goto = sg.InputText(str(new_page + 1), size=(5, 1), key='-SET PAGE-')
 
 # Full layout
 layout = [
     [
-        sg.Image('./static/ifrc_logo_small.png'),
-        sg.VSeparator(),
-        sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
-    ],
-    [
         sg.Column([
+            [
+                sg.Image('./static/ifrc_logo_small.png'),
+                sg.VSeparator(),
+                sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
+            ],
             [sg.Text('Select a folder with documents to search')],
             [sg.Combo(sorted(sg.user_settings_get_entry('-foldernames-', [])), default_value=sg.user_settings_get_entry('-last foldername-', ''), size=(35, 1), key='-FOLDERNAME-')],
-            [sg.FolderBrowse(), sg.B('Clear History')],
-            [sg.Text('Enter keywords')],
+            [sg.FolderBrowse(target='-FOLDERNAME-'), sg.B('Clear History')],
+            [sg.Text('Enter keywords (one per line)')],
             [sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(35, 5), key='-KEYWORDS-')],
             [sg.Button('Search', key='-SEARCH FOR KEYWORDS-')],
+            [sg.Text('', key='-SEARCH WARNING-', text_color='red', visible=False)],
             [sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
             sg.Text("0 %", size=(4, 1), key='Percent')],
             [sg.Text("", key='-RESULTS SUMMARY-')],
             [sg.Table(values=[[]],
                       headings=['File', 'Page', 'Keyword', 'Count'],
-                      size=(35, 35),
                       auto_size_columns=False,
                       max_col_width=10,
                       def_col_width=10,
                       key="-RESULTS TABLE-",
-                      enable_events=True)],
+                      enable_events=True,
+                      expand_y=True)],
             [sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
             sg.FileSaveAs('Save results', file_types=(("CSV Files", "*.csv"),))]
-        ]),
+        ], expand_y=True),
         sg.VSeparator(),
         sg.Column([
             [
+                sg.Text('', key='-DOCUMENT NAME-'),
                 sg.Button('Prev', key='-PREV PAGE-'),
                 sg.Button('Next', key='-NEXT PAGE-'),
                 sg.Text('Page:'),
@@ -57,7 +60,7 @@ layout = [
                 sg.Text('', key='-TOTAL PAGES-'),
             ],
             [image_elem],
-        ], key='-DOC VIEWER COLUMN-', visible=False)
+        ], key='-DOC VIEWER COLUMN-', visible=False, expand_x=True, expand_y=True)
     ]
 ]
 window = sg.Window('IFRC Keyword Searcher',
@@ -73,7 +76,21 @@ window['-DOC VIEWER-'].bind('<Leave>', '_away')
 Functions
 """
 # Loop through files in a folder and search for keywords
-def loop_files_search_keywords(folderpath, keywords):
+def loop_files_search_keywords(filepaths, keywords):
+    """
+    Loop through a list of files (with paths) and search for keywords in each document.^M
+
+    Convert to PDF if necessary.
+
+    Parameters
+    ----------
+    filepaths : list (required)
+        List of filepaths to search. Keyword searching will be run on each file.
+
+    keywords : list (required)
+        The keywords to search for.
+    """
+    # Get global variables
     global searching
     global keyword_results
     global keyword_instances
@@ -82,18 +99,29 @@ def loop_files_search_keywords(folderpath, keywords):
     results_summary_text = window['-RESULTS SUMMARY-']
 
     # Loop through the files in the folder
-    files_to_search = sorted(os.listdir(folderpath))
     keyword_instances = {}
-    for i, filename in enumerate(files_to_search):
+    for i, filepath in enumerate(filepaths):
+        filename = os.path.basename(filepath)
         keyword_instances[filename] = {}
 
         # Break if the search has been stopped
         if not searching:
             break
 
+        # Check the file extension and if it is not a pdf, skip and print a warning
+        file_extension = pathlib.Path(filename).suffix
+        if file_extension != '.pdf':
+            warning_text = window['-SEARCH WARNING-']
+            warning_message = f'Skipping file {filename} as it is not a PDF.'
+            if warning_text.get():
+                warning_message = f'{warning_text.get()}\n{warning_message}'
+            warning_text.update(value=warning_message, visible=True)
+            window.refresh()
+            continue
+
         # Search for keywords using PyMuPDF
+        file = fitz.open(filepath)
         file_results = []
-        file = fitz.open(os.path.join(folderpath, filename))
         for pageno, page in enumerate(file):
             keyword_instances[filename][pageno] = []
             page_keywords = []
@@ -133,6 +161,7 @@ searching = False
 doc_viewer_hover = False
 display_lists = []
 view_doc_viewer = False
+open_filename = None
 
 while True:
     event, values = window.read()
@@ -166,6 +195,7 @@ while True:
                 view_doc_viewer = False
                 window['-DOC VIEWER COLUMN-'].update(visible=view_doc_viewer)
                 window.refresh()
+            window['-SEARCH WARNING-'].update(visible=False, value='')
             window['-SEARCH FOR KEYWORDS-'].update('Cancel')
             keyword_results = []
             results_summary = {'keywords': 0, 'documents': 0}
@@ -179,7 +209,9 @@ while True:
             sg.user_settings_set_entry('-last foldername-', values['-FOLDERNAME-'])
 
             # Loop through files in the folder and search for keywords
-            thread = Thread(target=loop_files_search_keywords, args=(values['-FOLDERNAME-'], keywords))
+            files_to_search = sorted(os.listdir(values['-FOLDERNAME-']))
+            filepaths_to_search = [os.path.join(values['-FOLDERNAME-'], filename) for filename in files_to_search]
+            thread = Thread(target=loop_files_search_keywords, args=(filepaths_to_search, keywords))
             thread.start()
 
     # Export the results
@@ -198,17 +230,20 @@ while True:
             new_page = selected_row[1]-1
             selected_keyword = selected_row[2]
 
-            # Clicking to open a new file
+            # Clicking to open a NEW file: open the file with fitz and apply highlighting
             if selected_filename!=open_filename:
                 update_page = True
-                if open_file:
-                    open_file.close()
+                if open_file: open_file.close()
+
+                # Open the file with fitz
                 open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
+                total_pages = len(open_file)
                 open_filename = selected_filename
-                display_lists = [None]*len(open_file)
+                display_lists = [None]*total_pages
 
                 # Set the total pages text
-                window['-TOTAL PAGES-'].update(f'Total pages: {len(open_file)}')
+                window['-DOCUMENT NAME-'].update(f'{open_filename}')
+                window['-TOTAL PAGES-'].update(f'Total pages: {total_pages}')
 
                 # Add highlighting found by previous keyword searching to each page in the file
                 for pageno in keyword_instances[selected_filename]:
@@ -236,8 +271,8 @@ while True:
 
     # Update the document page if required
     if open_filename is not None:
-        if new_page > len(open_file)-1:
-            new_page = len(open_file)-1
+        if new_page > total_pages-1:
+            new_page = total_pages-1
         elif new_page < 0:
             new_page = 0
         if (new_page!=open_page):
