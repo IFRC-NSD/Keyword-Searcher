@@ -27,7 +27,7 @@ layout = [
     [
         sg.Column([
             [
-                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_logo_small.png')),
+                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_logo.png')),
                 sg.VSeparator(),
                 sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
             ],
