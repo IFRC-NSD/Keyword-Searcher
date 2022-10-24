@@ -65,7 +65,7 @@ layout = [
                 sg.Text('', key='-TOTAL PAGES-'),
             ],
             [image_elem],
-        ], key='-DOC VIEWER COLUMN-', visible=False, scrollable=True, vertical_scroll_only=True, size=(920, None), expand_x=True, expand_y=True)
+        ], key='-DOC VIEWER COLUMN-', visible=False, scrollable=True, vertical_scroll_only=False, size=(920, None), expand_x=True, expand_y=True)
     ]
 ]
 window = sg.Window('IFRC Keyword Searcher',
