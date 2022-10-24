@@ -15,6 +15,7 @@ GUI application to search for keywords in IFRC documents.
 """
 Define the window layout
 """
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 sg.change_look_and_feel('Default1')
 new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-', expand_x=True, expand_y=True)
@@ -26,7 +27,7 @@ layout = [
     [
         sg.Column([
             [
-                sg.Image('./static/ifrc_logo_small.png'),
+                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_logo_small.png')),
                 sg.VSeparator(),
                 sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
             ],
@@ -73,7 +74,7 @@ window = sg.Window('IFRC Keyword Searcher',
                    return_keyboard_events=True,
                    finalize=True,
                    resizable=True,
-                   icon=r'./static/icon.ico')
+                   icon=os.path.join(CURRENT_DIR, 'static/icon.ico'))
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
