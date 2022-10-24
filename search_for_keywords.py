@@ -184,6 +184,7 @@ Create an event loop
 # Create the event loop
 keyword_results = keyword_instances = None
 searching = False
+search_folder = search_keywords = None
 doc_viewer_hover = False
 display_lists = []
 view_doc_viewer = False
@@ -207,15 +208,17 @@ while True:
 
     # Search for keywords!
     elif event == '-SEARCH FOR KEYWORDS-':
+        search_folder = values['-FOLDERNAME-']
+        keywords = [word.strip() for word in values['-KEYWORDS-'].split('\n') if word.strip()!='']
 
         # Check there is a folder and keywords entered
-        if not values['-FOLDERNAME-'] or not values['-KEYWORDS-']:
+        if not search_folder or not keywords:
             window['-SEARCH ERROR-'].update(value='Please enter a search folder and keywords')
             continue
-        elif not values['-FOLDERNAME-']:
+        elif not search_folder:
             window['-SEARCH ERROR-'].update(value='Please enter a search folder')
             continue
-        elif not values['-FOLDERNAME-']:
+        elif not search_folder:
             window['-KEYWORDS-'].update(value='Please enter keywords')
             continue
 
@@ -242,14 +245,13 @@ while True:
             window['-RESULTS SUMMARY-'].update(value=f'0 keywords found in 0 documents')
 
             # Save the keywords, and folder path for next time
-            keywords = [word.strip() for word in values['-KEYWORDS-'].split('\n') if word.strip()!='']
             sg.user_settings_set_entry('-keywords-', list(set(keywords)))
-            sg.user_settings_set_entry('-foldernames-', list(set(sg.user_settings_get_entry('-foldernames-', []) + [values['-FOLDERNAME-'], ])))
-            sg.user_settings_set_entry('-last foldername-', values['-FOLDERNAME-'])
+            sg.user_settings_set_entry('-foldernames-', list(set(sg.user_settings_get_entry('-foldernames-', []) + [search_folder, ])))
+            sg.user_settings_set_entry('-last foldername-', search_folder)
 
             # Loop through files in the folder and search for keywords
-            files_to_search = sorted(os.listdir(values['-FOLDERNAME-']))
-            filepaths_to_search = [os.path.join(values['-FOLDERNAME-'], filename) for filename in files_to_search]
+            files_to_search = sorted(os.listdir(search_folder))
+            filepaths_to_search = [os.path.join(search_folder, filename) for filename in files_to_search]
             thread = Thread(target=loop_files_search_keywords, args=(filepaths_to_search, keywords))
             thread.start()
 
@@ -268,7 +270,7 @@ while True:
                 if keyword_instances.keys():
                     # Loop through the documents containing keywords, applying highlighting, and save
                     for document_name in keyword_instances.keys():
-                        keyword_document = fitz.open(os.path.join(values['-FOLDERNAME-'], document_name))
+                        keyword_document = fitz.open(os.path.join(search_folder, document_name))
                         keyword_document = highlight_document(keyword_instances=keyword_instances[document_name], file=keyword_document)
                         keyword_document.save(os.path.join(export_foldername, document_name))
                     window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
@@ -289,7 +291,7 @@ while True:
                 if open_file: open_file.close()
 
                 # Open the file with fitz
-                open_file = fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename))
+                open_file = fitz.open(os.path.join(search_folder, selected_filename))
                 total_pages = len(open_file)
                 open_filename = selected_filename
                 display_lists = [None]*total_pages
@@ -313,7 +315,7 @@ while True:
 
             # Open the document, apply highlighting, and open
             highlighted_doc = highlight_document(keyword_instances=keyword_instances[selected_filename],
-                                                 file=fitz.open(os.path.join(values['-FOLDERNAME-'], selected_filename)))
+                                                 file=fitz.open(os.path.join(search_folder, selected_filename)))
             if temp_dir is None:
                 temp_dir = tempfile.TemporaryDirectory()
             temp_filepath = os.path.join(temp_dir.name, selected_filename)
