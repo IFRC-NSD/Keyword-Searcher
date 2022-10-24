@@ -35,10 +35,10 @@ layout = [
             [sg.FolderBrowse(target='-FOLDERNAME-'), sg.B('Clear History')],
             [sg.Text('Enter keywords (one per line)')],
             [sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(45, 5), key='-KEYWORDS-')],
-            [sg.Button('Search', key='-SEARCH FOR KEYWORDS-')],
+            [sg.Button('Search', key='-SEARCH FOR KEYWORDS-'), sg.Text('', key='-SEARCH ERROR-', text_color='red')],
             [sg.Text('', key='-SEARCH WARNING-', text_color='red', visible=False)],
             [sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
-            sg.Text("0 %", size=(4, 1), key='Percent')],
+            sg.Text("0 %", size=(6, 1), key='Percent')],
             [sg.Text("", key='-RESULTS SUMMARY-')],
             [sg.Table(values=[[]],
                       headings=results_headers,
@@ -46,13 +46,14 @@ layout = [
                       col_widths=(18, 5, 7, 5),
                       key="-RESULTS TABLE-",
                       enable_events=True,
+                      justification='left',
                       expand_y=True)],
             [sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
             sg.FileSaveAs('Save results', target='-EXPORT RESULTS-', file_types=(("CSV Files", "*.csv"),)),
             sg.InputText('', do_not_clear=False, visible=False, key='-SAVE KEYWORD DOCUMENTS-', enable_events=True),
             sg.FolderBrowse('Save all documents containing keywords', target='-SAVE KEYWORD DOCUMENTS-')],
             [sg.Text('', key='-SAVE MESSAGE-', text_color='green')],
-        ], expand_y=True),
+        ], expand_y=True, expand_x=False, key='-SEARCH COLUMN-'),
         sg.VSeparator(),
         sg.Column([
             [
@@ -64,7 +65,7 @@ layout = [
                 sg.Text('', key='-TOTAL PAGES-'),
             ],
             [image_elem],
-        ], key='-DOC VIEWER COLUMN-', visible=False, expand_x=True, expand_y=True)
+        ], key='-DOC VIEWER COLUMN-', visible=False, scrollable=True, vertical_scroll_only=True, size=(920, None), expand_x=True, expand_y=True)
     ]
 ]
 window = sg.Window('IFRC Keyword Searcher',
@@ -206,7 +207,16 @@ while True:
 
     # Search for keywords!
     elif event == '-SEARCH FOR KEYWORDS-':
+
+        # Check there is a folder and keywords entered
         if not values['-FOLDERNAME-'] or not values['-KEYWORDS-']:
+            window['-SEARCH ERROR-'].update(value='Please enter a search folder and keywords')
+            continue
+        elif not values['-FOLDERNAME-']:
+            window['-SEARCH ERROR-'].update(value='Please enter a search folder')
+            continue
+        elif not values['-FOLDERNAME-']:
+            window['-KEYWORDS-'].update(value='Please enter keywords')
             continue
 
         # If searching already, then cancel the search
@@ -216,6 +226,7 @@ while True:
 
         # Else begin searching
         else:
+            window['-SEARCH ERROR-'].update(value='')
             searching = True
             open_filename = open_page = open_file = None # Refresh to set everything as closed
             if view_doc_viewer:
@@ -329,10 +340,6 @@ while True:
         doc_viewer_hover = True
     elif event == "-DOC VIEWER-_away":
         doc_viewer_hover = False
-    elif (event == "MouseWheel:Down") and doc_viewer_hover:
-        new_page += 1
-    elif (event == "MouseWheel:Up") and doc_viewer_hover:
-        new_page -= 1
 
     # Update the document page if required
     if open_filename is not None:
@@ -351,7 +358,7 @@ while True:
             if not display_lists[new_page]:  # create if not yet there
                 display_lists[new_page] = open_file[new_page].get_displaylist()
             dlist = display_lists[new_page]
-            pix = dlist.get_pixmap(alpha=False)
+            pix = dlist.get_pixmap(alpha=False, matrix=fitz.Matrix(1.5, 1.5))
             image_elem.update(data=pix.tobytes(output='png'))
             open_page = new_page # Set that the currently open page is the new page
             goto.update(str(new_page + 1))
