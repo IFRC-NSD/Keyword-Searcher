@@ -1,1 +1,6 @@
-test*
+__pycache__
+build/
+dist/
+*.spec
+venv/
+*.exe
