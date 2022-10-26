@@ -1,11 +1,5 @@
 import os
-import re
 import pathlib
-import tempfile
-import webbrowser
-from threading import Thread
-import pandas as pd
-import fitz
 import PySimpleGUI as sg
 """
 GUI application to search for keywords in IFRC documents.
@@ -253,6 +247,8 @@ while True:
             # Loop through files in the folder and search for keywords
             files_to_search = sorted(os.listdir(search_folder))
             filepaths_to_search = [os.path.join(search_folder, filename) for filename in files_to_search]
+            import fitz
+            from threading import Thread
             thread = Thread(target=loop_files_search_keywords, args=(filepaths_to_search, keywords))
             thread.start()
 
@@ -261,8 +257,11 @@ while True:
         export_filename = values['-EXPORT RESULTS-']
         if export_filename:
             if keyword_results:
-                results_df = pd.DataFrame(data=keyword_results, columns=results_headers)
-                results_df.to_csv(export_filename, index=False)
+                import csv
+                with open(export_filename, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(results_headers)
+                    writer.writerows(keyword_results)
                 window['-SAVE MESSAGE-'].update(value='Results saved successfully', visible=True)
     elif event=='-SAVE KEYWORD DOCUMENTS-':
         export_foldername = values['-SAVE KEYWORD DOCUMENTS-']
@@ -317,12 +316,14 @@ while True:
             # Open the document, apply highlighting, and open
             highlighted_doc = highlight_document(keyword_instances=keyword_instances[selected_filename],
                                                  file=fitz.open(os.path.join(search_folder, selected_filename)))
+            import tempfile
             if temp_dir is None:
                 temp_dir = tempfile.TemporaryDirectory()
             temp_filepath = os.path.join(temp_dir.name, selected_filename)
             highlighted_doc.save(temp_filepath)
 
             # Try to open the file at the right page
+            import webbrowser
             try:
                 open_path = pathlib.Path(temp_filepath).as_uri()
                 webbrowser.open(f'{open_path}#page={selected_page}') # The page information is being stripped....
