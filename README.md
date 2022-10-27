@@ -49,10 +49,16 @@ python .\search_for_keywords.py
 To generate the GUI application, [PyInstaller](https://pyinstaller.org/en/stable/index.html) can be used (note this must be run on Windows so that the final executable can be run on Windows):
 
 ```bash
-.\venv\Scripts\pyinstaller --onefile --noconsole --add-data "static/*;static/" --distpath ..\ .\search_for_keywords.py
+.\venv\Scripts\pyinstaller --noconsole --add-data "static/*;static/" --distpath ..\ --name "IFRC Keyword Searcher" .\search_for_keywords.py
 ```
 - ```.\venv\Scripts\pyinstaller``` path to pyinstaller in the virtual environment
-- ```--onefile``` creates a one-file bundled executable as this is more convenient for sharing
 - ```--noconsole``` does not open a console when the executable is run, only the application
 - ```--add-data``` this is required to add the static files (logos)
 - ```--distpath``` this specifies the location for the final executable file
+- ```--name``` name to assign to the bundled app
+
+You can add a ```--onefile``` which means everything is bundled into one executable file, however this slows down start-up of the GUI.
+
+The application can be run by double-clicking the executable ```IFRC Keyword Searcher.exe``` file.
+
+The application takes some time to load. Without the ```--onefile``` argument, the application takes approximately 30s to load. With the ```--onefile``` argument it takes a long time (> 10m)! The cause of this delay is Windows malware scanning. If you want the application to load faster, you can turn this off by going to **Windows security &rarr; Virus and threat protection &rarr; Manage settings**, and clicking to turn off **Real time protection**. It is recommended that you turn this back on after the GUI has loaded.

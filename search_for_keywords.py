@@ -207,7 +207,10 @@ while True:
         keywords = [word.strip() for word in values['-KEYWORDS-'].split('\n') if word.strip()!='']
 
         # Check there is a folder and keywords entered
-        if not search_folder or not keywords:
+        if not os.path.isdir(search_folder):
+            window['-SEARCH ERROR-'].update(value='Please enter a valid search folder')
+            continue
+        if not search_folder and not keywords:
             window['-SEARCH ERROR-'].update(value='Please enter a search folder and keywords')
             continue
         elif not search_folder:
