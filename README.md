@@ -59,6 +59,12 @@ To generate the GUI application, [PyInstaller](https://pyinstaller.org/en/stable
 
 You can add a ```--onefile``` which means everything is bundled into one executable file, however this slows down start-up of the GUI.
 
-The application can be run by double-clicking the executable ```IFRC Keyword Searcher.exe``` file.
+The application can be run by double-clicking the executable ```IFRC Keyword Searcher.exe``` file. With the above configuration it can take up to 30 seconds to load (described more [below](#loading-time-and-windows-security)). Once loaded it should appear like this:
 
-The application takes some time to load. Without the ```--onefile``` argument, the application takes approximately 30s to load. With the ```--onefile``` argument it takes a long time (> 10m)! The cause of this delay is Windows malware scanning. If you want the application to load faster, you can turn this off by going to **Windows security &rarr; Virus and threat protection &rarr; Manage settings**, and clicking to turn off **Real time protection**. It is recommended that you turn this back on after the GUI has loaded.
+<p align="center">
+  <img src="static/app_screenshot.png?raw=true" alt="IFRC Keyword Searcher GUI application screenshot"/>
+</p>
+
+### Loading time and Windows security
+
+The application takes some time to load. Without the ```--onefile``` argument, the application takes approximately 30s to load. With the ```--onefile``` argument it takes much longer (> 10m)! The cause of this delay is Windows malware scanning. If you want the application to load faster, you can turn this off by going to **Windows security &rarr; Virus and threat protection &rarr; Manage settings**, and clicking to turn off **Real time protection**. It is recommended that you turn this back on after the application has loaded.
