@@ -38,11 +38,12 @@ layout = [
             [sg.Table(values=[[]],
                       headings=results_headers,
                       auto_size_columns=False,
-                      col_widths=(10, 5, 7, 18),
+                      col_widths=(10, 5, 7, 13),
                       key="-RESULTS TABLE-",
                       enable_events=True,
                       justification='left',
                       expand_y=True)],
+            [sg.Multiline('', size=(45, 10), visible=False, key='-TEXTBLOCK-')],
             [sg.InputText('', do_not_clear=False, visible=False, key='-EXPORT RESULTS-', enable_events=True),
             sg.FileSaveAs('Save results', target='-EXPORT RESULTS-', file_types=(("CSV Files", "*.csv"),)),
             sg.InputText('', do_not_clear=False, visible=False, key='-SAVE KEYWORD DOCUMENTS-', enable_events=True),
@@ -269,6 +270,7 @@ while True:
             results_summary = {'keywords': 0, 'documents': 0}
             window['-RESULTS TABLE-'].update([[]])
             window['-RESULTS SUMMARY-'].update(value=f'0 keywords found in 0 documents')
+            window['-TEXTBLOCK-'].update(visible=False, value='')
 
             # Save the keywords, and folder path for next time
             sg.user_settings_set_entry('-keywords-', list(set(keywords)))
@@ -315,6 +317,9 @@ while True:
             selected_filename = selected_row[0]
             new_page = selected_row[1]-1
             selected_keyword = selected_row[2]
+
+            # Update the textblock
+            window['-TEXTBLOCK-'].update(selected_row[3], visible=True)
 
             # Clicking to open a NEW file: open the file with fitz and apply highlighting
             if selected_filename!=open_filename:
