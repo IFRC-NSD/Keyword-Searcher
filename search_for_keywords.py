@@ -178,21 +178,32 @@ def loop_files_search_keywords(filepaths, keywords):
                             window['-SET WORD PAD-'].update(10)
 
                         # Get words either side of the target keyword
-                        words_before = pdf_words[page.number][(0 if (istart-word_pad)<0 else istart-word_pad):istart]
-                        words_after = pdf_words[page.number][iend+1:iend+word_pad+1]
-                        word_block = words_before+pdf_words[page.number][istart:iend+1]+words_after
-                        text_block = page.get_textbox((0, min([word[1] for word in word_block]), page.rect.width, max([word[3] for word in word_block])))
+                        count_words_before = 0
+                        for word in reversed(pdf_words[page.number][:istart]):
+                            first_word = word
+                            count_words_before += len(word[4].replace('\xa0', ' ').strip().split())
+                            if count_words_before >= word_pad:
+                                break
+                        count_words_after = 0
+                        for word in pdf_words[page.number][iend+1:]:
+                            last_word = word
+                            count_words_after += len(word[4].replace('\xa0', ' ').strip().split())
+                            if count_words_after >= word_pad:
+                                break
+                        text_block = page.get_textbox((0, first_word[1], page.rect.width, last_word[3]))
 
-                        # Get overflow words if required
-                        if (len(words_before)<word_pad) and page.number > 0:
+                        # Get overflow words on previous and next page
+                        if (count_words_before<word_pad) and page.number > 0:
                             prev_page = file[page.number-1]
-                            words_prev_page = pdf_words[page.number-1][len(words_before)-word_pad:]
+                            words_prev_page = pdf_words[page.number-1][count_words_before-word_pad:]
                             text_block_prev_page = prev_page.get_textbox((0, words_prev_page[0][1], prev_page.rect.width, words_prev_page[-1][3]))
+                            text_block_prev_page = ' '.join(text_block_prev_page.replace('\xa0', ' ').strip().split()[count_words_before-word_pad:])
                             text_block = text_block_prev_page + '\n\n' + text_block
-                        if (len(words_after)<word_pad) and (page.number < len(file)-1):
+                        if (count_words_after<word_pad) and (page.number < len(file)-1):
                             next_page = file[page.number+1]
-                            words_next_page = pdf_words[page.number+1][:word_pad-len(words_after)]
+                            words_next_page = pdf_words[page.number+1][:word_pad-count_words_after]
                             text_block_next_page = next_page.get_textbox((0, words_next_page[0][1], next_page.rect.width, words_next_page[-1][3]))
+                            text_block_next_page = ' '.join(text_block_next_page.replace('\xa0', ' ').strip().split()[:word_pad-count_words_after])
                             text_block = text_block + '\n\n' + text_block_next_page
 
                         # Remove funny characters
