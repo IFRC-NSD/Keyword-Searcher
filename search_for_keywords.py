@@ -139,11 +139,11 @@ def loop_files_search_keywords(filepaths, keywords):
             window.refresh()
             continue
 
-        # Open the file and extract text blocks
+        # Open the file and extract words with positions
         file = fitz.open(filepath)
-        pdf_blocks = {}
+        pdf_words = {}
         for page in file:
-            pdf_blocks[page.number] = list(page.get_text("blocks"))
+            pdf_words[page.number] = list(page.get_text("words"))
 
         # Search for keywords using PyMuPDF and save to keyword_results
         file_results = []
@@ -157,27 +157,29 @@ def loop_files_search_keywords(filepaths, keywords):
                     # Loop through instances to extract information
                     for instance in instances:
 
-                        # Find the block containing the instance start and the block containing the instance end
-                        block_start = block_end = None
-                        for j, block in enumerate(pdf_blocks[page.number]):
-                            if (block_start is not None) and (block_end is not None): break
-                            if block_start is None:
-                                if (block[1] <= instance[1]) and (block[3] >= instance[1]):
-                                    block_start = j
-                            if block_end is None:
-                                if (block[1] <= instance[3]) and (block[3] >= instance[3]):
-                                    block_end = j
+                        # Find the word containing the instance start and the word containing the instance end
+                        istart = iend = None
+                        for j, word in enumerate(pdf_words[page.number]):
+                            if (istart is not None) and (iend is not None): break
+                            if istart is None:
+                                if (word[1] == instance[1]) and (word[0] <= instance[0]) and (word[2] >= instance[0]):
+                                    istart = j
+                            if iend is None:
+                                if (word[3] == instance[3]) and (word[0] <= instance[2]) and (word[2] >= instance[2]):
+                                    iend = j
 
-                        # Get the padding blocks before and after the found block
-                        block_pad = 0
-                        blocks_before = pdf_blocks[page.number][(0 if (block_start-block_pad)<0 else block_start-block_pad):block_start]
-                        if (len(blocks_before)<block_pad) and page.number > 0:
-                            blocks_before = pdf_blocks[page.number-1][len(blocks_before)-block_pad:]
-                        blocks_after = pdf_blocks[page.number][block_end+1:block_end+block_pad+1]
-                        if (len(blocks_after)<block_pad) and (page.number < len(file)-1):
-                            blocks_after += pdf_blocks[page.number+1][:block_pad-len(blocks_after)]
-                        text_blocks = blocks_before+pdf_blocks[page.number][block_start:block_end+1]+blocks_after
-                        text_block = '\n\n'.join([block[4] for block in text_blocks]).replace('\xa0', ' ').replace('\uf0b7 \n', ' - ')
+                        # Get words either side of the target keyword
+                        word_pad = 10
+                        words_before = pdf_words[page.number][(0 if (istart-word_pad)<0 else istart-word_pad):istart]
+                        if (len(words_before)<word_pad) and page.number > 0:
+                            words_before = pdf_words[page.number-1][len(words_before)-word_pad:]
+                        words_after = pdf_words[page.number][iend+1:iend+word_pad+1]
+                        if (len(words_after)<word_pad) and (page.number < len(file)-1):
+                            words_after += pdf_words[page.number+1][:word_pad-len(words_after)]
+                        word_block = words_before+pdf_words[page.number][istart:iend+1]+words_after
+
+                        # Then get the text block to get the spacing back
+                        text_block = page.get_textbox((0, word_block[0][1], page.rect.width, word_block[-1][3])).replace('\xa0', ' ').replace('\uf0b7 \n', ' - ')
 
                         # Add results to be displayed in the table
                         file_results.append([filename, pageno+1, keyword, text_block])
