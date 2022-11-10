@@ -144,7 +144,7 @@ def loop_files_search_keywords(filepaths, keywords):
         file = fitz.open(filepath)
         pdf_words = {}
         for page in file:
-            pdf_words[page.number] = list(page.get_text("words"))
+            pdf_words[page.number] = sorted(list(page.get_text("words")), key=lambda word: [word[1], word[0]])
 
         # Search for keywords using PyMuPDF and save to keyword_results
         file_results = []
@@ -169,22 +169,33 @@ def loop_files_search_keywords(filepaths, keywords):
                                 if (word[3] == instance[3]) and (word[0] <= instance[2]) and (word[2] >= instance[2]):
                                     iend = j
 
-                        # Get words either side of the target keyword
+                        # Set the word padding based on the user input
                         try:
                             word_pad = int(values['-SET WORD PAD-'])
                         except Exception as err:
                             word_pad = 10
                             window['-SET WORD PAD-'].update(10)
-                        words_before = pdf_words[page.number][(0 if (istart-word_pad)<0 else istart-word_pad):istart]
-                        if (len(words_before)<word_pad) and page.number > 0:
-                            words_before = pdf_words[page.number-1][len(words_before)-word_pad:]
-                        words_after = pdf_words[page.number][iend+1:iend+word_pad+1]
-                        if (len(words_after)<word_pad) and (page.number < len(file)-1):
-                            words_after += pdf_words[page.number+1][:word_pad-len(words_after)]
-                        word_block = words_before+pdf_words[page.number][istart:iend+1]+words_after
 
-                        # Then get the text block to get the spacing back
-                        text_block = page.get_textbox((0, word_block[0][1], page.rect.width, word_block[-1][3])).replace('\xa0', ' ').replace('\uf0b7 \n', ' - ')
+                        # Get words either side of the target keyword
+                        words_before = pdf_words[page.number][(0 if (istart-word_pad)<0 else istart-word_pad):istart]
+                        words_after = pdf_words[page.number][iend+1:iend+word_pad+1]
+                        word_block = words_before+pdf_words[page.number][istart:iend+1]+words_after
+                        text_block = page.get_textbox((0, min([word[1] for word in word_block]), page.rect.width, max([word[3] for word in word_block])))
+
+                        # Get overflow words if required
+                        if (len(words_before)<word_pad) and page.number > 0:
+                            prev_page = file[page.number-1]
+                            words_prev_page = pdf_words[page.number-1][len(words_before)-word_pad:]
+                            text_block_prev_page = prev_page.get_textbox((0, words_prev_page[0][1], prev_page.rect.width, words_prev_page[-1][3]))
+                            text_block = text_block_prev_page + '\n\n' + text_block
+                        if (len(words_after)<word_pad) and (page.number < len(file)-1):
+                            next_page = file[page.number+1]
+                            words_next_page = pdf_words[page.number+1][:word_pad-len(words_after)]
+                            text_block_next_page = next_page.get_textbox((0, words_next_page[0][1], next_page.rect.width, words_next_page[-1][3]))
+                            text_block = text_block + '\n\n' + text_block_next_page
+
+                        # Remove funny characters
+                        text_block = text_block.replace('\xa0', ' ').replace('\uf0b7 \n', ' - ')
 
                         # Add results to be displayed in the table
                         file_results.append([filename, pageno+1, keyword, text_block])
