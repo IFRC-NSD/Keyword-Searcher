@@ -14,7 +14,7 @@ sg.change_look_and_feel('Default1')
 new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-', expand_x=True, expand_y=True)
 goto = sg.InputText(str(new_page + 1), size=(5, 1), key='-SET PAGE-')
-results_headers = ['File', 'Page', 'Keyword', 'Count']
+results_headers = ['File name', 'Page', 'Keyword', 'Text block']
 
 # Full layout
 layout = [
@@ -38,7 +38,7 @@ layout = [
             [sg.Table(values=[[]],
                       headings=results_headers,
                       auto_size_columns=False,
-                      col_widths=(18, 5, 7, 5),
+                      col_widths=(10, 5, 7, 18),
                       key="-RESULTS TABLE-",
                       enable_events=True,
                       justification='left',
@@ -97,7 +97,7 @@ def highlight_document(file, keyword_instances):
 # Loop through files in a folder and search for keywords
 def loop_files_search_keywords(filepaths, keywords):
     """
-    Loop through a list of files (with paths) and search for keywords in each document.^M
+    Loop through a list of files (with paths) and search for keywords in each document.
 
     Convert to PDF if necessary.
 
@@ -138,21 +138,49 @@ def loop_files_search_keywords(filepaths, keywords):
             window.refresh()
             continue
 
-        # Search for keywords using PyMuPDF
+        # Open the file and extract text blocks
         file = fitz.open(filepath)
+        pdf_blocks = {}
+        for page in file:
+            pdf_blocks[page.number] = list(page.get_text("blocks"))
+
+        # Search for keywords using PyMuPDF and save to keyword_results
         file_results = []
         for pageno, page in enumerate(file):
             keyword_instances[filename][pageno] = []
-            page_keywords = []
-            page_instances = 0
             for keyword in keywords:
                 instances = page.search_for(keyword)
                 if instances:
-                    page_keywords.append(keyword)
-                    page_instances += len(instances)
                     keyword_instances[filename][pageno] += instances
-            if page_keywords:
-                file_results.append([filename, pageno+1, ', '.join(page_keywords), page_instances])
+
+                    # Loop through instances to extract information
+                    for instance in instances:
+
+                        # Find the block containing the instance start and the block containing the instance end
+                        block_start = block_end = None
+                        for j, block in enumerate(pdf_blocks[page.number]):
+                            if (block_start is not None) and (block_end is not None): break
+                            if block_start is None:
+                                if (block[1] <= instance[1]) and (block[3] >= instance[1]):
+                                    block_start = j
+                            if block_end is None:
+                                if (block[1] <= instance[3]) and (block[3] >= instance[3]):
+                                    block_end = j
+
+                        # Get the padding blocks before and after the found block
+                        block_pad = 0
+                        blocks_before = pdf_blocks[page.number][(0 if (block_start-block_pad)<0 else block_start-block_pad):block_start]
+                        if (len(blocks_before)<block_pad) and page.number > 0:
+                            blocks_before = pdf_blocks[page.number-1][len(blocks_before)-block_pad:]
+                        blocks_after = pdf_blocks[page.number][block_end+1:block_end+block_pad+1]
+                        if (len(blocks_after)<block_pad) and (page.number < len(file)-1):
+                            blocks_after += pdf_blocks[page.number+1][:block_pad-len(blocks_after)]
+                        text_blocks = blocks_before+pdf_blocks[page.number][block_start:block_end+1]+blocks_after
+                        text_block = '\n\n'.join([block[4] for block in text_blocks]).replace('\xa0', ' ').replace('\uf0b7 \n', ' - ')
+
+                        # Add results to be displayed in the table
+                        file_results.append([filename, pageno+1, keyword, text_block])
+
         file.close()
 
         # Print the results to the table
@@ -261,7 +289,7 @@ while True:
         if export_filename:
             if keyword_results:
                 import csv
-                with open(export_filename, 'w', newline='') as f:
+                with open(export_filename, 'w', newline='',  encoding='utf-8') as f:
                     writer = csv.writer(f)
                     writer.writerow(results_headers)
                     writer.writerows(keyword_results)
