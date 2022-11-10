@@ -30,6 +30,7 @@ layout = [
             [sg.FolderBrowse(target='-FOLDERNAME-'), sg.B('Clear History')],
             [sg.Text('Enter keywords (one per line)')],
             [sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(45, 5), key='-KEYWORDS-')],
+            [sg.Text('Number of words as padding in results'), sg.InputText(10, size=(5, 1), key='-SET WORD PAD-')],
             [sg.Button('Search', key='-SEARCH FOR KEYWORDS-'), sg.Text('', key='-SEARCH ERROR-', text_color='red')],
             [sg.Text('', key='-SEARCH WARNING-', text_color='red', visible=False)],
             [sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
@@ -169,7 +170,11 @@ def loop_files_search_keywords(filepaths, keywords):
                                     iend = j
 
                         # Get words either side of the target keyword
-                        word_pad = 10
+                        try:
+                            word_pad = int(values['-SET WORD PAD-'])
+                        except Exception as err:
+                            word_pad = 10
+                            window['-SET WORD PAD-'].update(10)
                         words_before = pdf_words[page.number][(0 if (istart-word_pad)<0 else istart-word_pad):istart]
                         if (len(words_before)<word_pad) and page.number > 0:
                             words_before = pdf_words[page.number-1][len(words_before)-word_pad:]
