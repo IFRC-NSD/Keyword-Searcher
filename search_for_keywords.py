@@ -30,7 +30,7 @@ layout = [
             [sg.FolderBrowse(target='-FOLDERNAME-'), sg.B('Clear History')],
             [sg.Text('Enter keywords (one per line)')],
             [sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(45, 5), key='-KEYWORDS-')],
-            [sg.Text('Number of words as padding in results'), sg.InputText(10, size=(5, 1), key='-SET WORD PAD-')],
+            [sg.Text('Number of words as padding in results'), sg.InputText(10 if not sg.user_settings_get_entry('-LAST WORD PAD-') else sg.user_settings_get_entry('-LAST WORD PAD-'), size=(5, 1), key='-SET WORD PAD-')],
             [sg.Button('Search', key='-SEARCH FOR KEYWORDS-'), sg.Text('', key='-SEARCH ERROR-', text_color='red')],
             [sg.Text('', key='-SEARCH WARNING-', text_color='red', visible=False)],
             [sg.ProgressBar(max_value=100, orientation='h', size=(20, 20), key='progress'),
@@ -172,6 +172,7 @@ def loop_files_search_keywords(filepaths, keywords):
                         # Set the word padding based on the user input
                         try:
                             word_pad = int(values['-SET WORD PAD-'])
+                            sg.user_settings_set_entry('-LAST WORD PAD-', word_pad)
                         except Exception as err:
                             word_pad = 10
                             window['-SET WORD PAD-'].update(10)
@@ -195,7 +196,7 @@ def loop_files_search_keywords(filepaths, keywords):
                             text_block = text_block + '\n\n' + text_block_next_page
 
                         # Remove funny characters
-                        text_block = text_block.replace('\xa0', ' ').replace('\uf0b7 \n', ' - ')
+                        text_block = text_block.replace('\xa0', ' ').replace('\uf0b7 \n', ' - ').strip()
 
                         # Add results to be displayed in the table
                         file_results.append([filename, pageno+1, keyword, text_block])
