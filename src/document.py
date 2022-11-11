@@ -15,6 +15,7 @@ class Document:
         self.filename = os.path.basename(filepath)
         self.file_extension = pathlib.Path(self.filename).suffix
         self.doc = fitz.open(filepath)
+        self.total_pages = len(self.doc)
 
 
     def search_for_keywords(self, keywords, word_pad=10):
@@ -70,7 +71,7 @@ class Document:
                                                                                                   limit=word_pad-word_count_left)
                             text_block_prev_page = self.doc[pageno-1].get_textbox((0, first_word_prev_page[1], self.doc[pageno-1].rect.width, self.doc[pageno-1].rect.height))
                             text_block = text_block_prev_page + '\n\n' + text_block
-                        if (word_count_right<word_pad) and (pageno < len(self.doc)-1):
+                        if (word_count_right<word_pad) and (pageno < self.total_pages-1):
                             word_count_next_page, last_word_next_page = self.iterate_words_limit(words=self.words[pageno+1],
                                                                                                  limit=word_pad-word_count_right)
                             text_block_next_page = self.doc[pageno+1].get_textbox((0, 0, self.doc[pageno-1].rect.width, last_word_next_page[3]))
@@ -186,6 +187,21 @@ class Document:
                   .replace('\uf0b7 \n', ' - ')\
                   .strip()
         return txt
+
+
+    def highlight_doc(self, page_rects):
+        """
+        Add highlighting to the document.
+
+        Parameters
+        ----------
+        page_rects : dict (required)
+            Dict where the keys are page numbers, and the values are lists of coordinates, with each coordinate in the form (x1, y1, x2, y2), defining a rectangle to be highlighted.
+        """
+        for pageno in page_rects:
+            for rect in page_rects[pageno]:
+                self.doc[pageno].add_highlight_annot(rect)
+        return self.doc
 
 
     def close(self):

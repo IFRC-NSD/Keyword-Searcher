@@ -3,10 +3,10 @@ import pathlib
 import PySimpleGUI as sg
 import settings
 from document_searcher import DocumentSearcher
+from document import Document
 """
 GUI application to search for keywords in IFRC documents.
 """
-
 
 """
 Define the window layout
@@ -78,26 +78,6 @@ window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
 window['-RESULTS TABLE-'].bind('<Double-Button-1>', '_double_click')
 window['-RESULTS TABLE-'].bind("<Return>", "_enter")
-
-"""
-Functions
-"""
-def highlight_document(file, keyword_instances):
-    """
-    Highlight keywords in a fitz file, looping per page.
-
-    Parameters
-    ----------
-    file : fitz file (required)
-
-    keyword_instances (required)
-        Dictionary mapping pages to lists of fitz instances.
-    """
-    for pageno in keyword_instances:
-        for inst in keyword_instances[pageno]:
-            file[pageno].add_highlight_annot(inst)
-    return file
-
 
 """
 Create an event loop
@@ -206,9 +186,8 @@ while True:
                 if settings.keyword_instances.keys():
                     # Loop through the documents containing keywords, applying highlighting, and save
                     for document_name in settings.keyword_instances.keys():
-                        keyword_document = fitz.open(os.path.join(search_folder, document_name))
-                        keyword_document = highlight_document(keyword_instances=settings.keyword_instances[document_name], file=keyword_document)
-                        keyword_document.save(os.path.join(export_foldername, document_name))
+                        highlighted_doc = Document(filepath=os.path.join(search_folder, document_name)).highlight_doc(settings.keyword_instances[document_name])
+                        highlighted_doc.save(os.path.join(export_foldername, document_name))
                     window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
 
     # Display PDFs with keyword when clicked on in table
@@ -230,18 +209,17 @@ while True:
                 if open_file: open_file.close()
 
                 # Open the file with fitz
-                open_file = fitz.open(os.path.join(search_folder, selected_filename))
-                total_pages = len(open_file)
+                doc = Document(filepath=os.path.join(search_folder, selected_filename))
+                total_pages = doc.total_pages
                 open_filename = selected_filename
-                display_lists = [None]*total_pages
+                display_lists = [None]*doc.total_pages
 
                 # Set the total pages text
                 window['-DOCUMENT NAME-'].update(f'{open_filename}')
-                window['-TOTAL PAGES-'].update(f'Total pages: {total_pages}')
+                window['-TOTAL PAGES-'].update(f'Total pages: {doc.total_pages}')
 
                 # Add highlighting found by previous keyword searching to each page in the file
-                open_file = highlight_document(keyword_instances=settings.keyword_instances[selected_filename],
-                                               file=open_file)
+                open_file = doc.highlight_doc(page_rects=settings.keyword_instances[selected_filename])
 
     # Double clicking a row in the results table should open the file
     elif event in('-RESULTS TABLE-_double_click', '-RESULTS TABLE-_enter'):
@@ -253,8 +231,7 @@ while True:
             selected_page = selected_row[1]-1
 
             # Open the document, apply highlighting, and open
-            highlighted_doc = highlight_document(keyword_instances=settings.keyword_instances[selected_filename],
-                                                 file=fitz.open(os.path.join(search_folder, selected_filename)))
+            highlighted_doc = Document(filepath=os.path.join(search_folder, selected_filename)).highlight_doc(page_rects=settings.keyword_instances[selected_filename])
             import tempfile
             if temp_dir is None:
                 temp_dir = tempfile.TemporaryDirectory()
