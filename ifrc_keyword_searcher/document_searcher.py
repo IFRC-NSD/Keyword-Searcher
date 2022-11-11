@@ -31,8 +31,7 @@ class DocumentSearcher:
             PySimpleGUI window so that GUI features can be updated as searching is run, such as the progress bar.
         """
         # Get global variables
-        settings.searching=True
-        settings.keyword_results=[]
+        settings.keyword_results=None
         settings.keyword_instances={}
 
         # Loop through the files in the folder
@@ -40,7 +39,8 @@ class DocumentSearcher:
         for i, filepath in enumerate(filepaths):
 
             # Break if the search has been stopped
-            if not settings.searching: break
+            if not settings.searching:
+                break
 
             # Create the document
             doc = Document(filepath=filepath)
@@ -56,7 +56,10 @@ class DocumentSearcher:
             # Search for keywords in the file
             results, instances = doc.search_for_keywords(keywords=keywords, word_pad=word_pad)
             doc.close()
-            settings.keyword_results += results
+            if settings.keyword_results is None:
+                settings.keyword_results = results
+            else:
+                settings.keyword_results += results
             settings.keyword_instances[doc.filename] = instances
 
             # Update the progress message and progress bar
@@ -70,5 +73,5 @@ class DocumentSearcher:
 
         # Once searching has finished, update the results table and set to not searching
         settings.searching = False
-        window['-RESULTS TABLE-'].update(settings.keyword_results)
         window['-SEARCH FOR KEYWORDS-'].update('Search')
+        window['-RESULTS TABLE-'].update(settings.keyword_results)
