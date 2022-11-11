@@ -8,7 +8,7 @@ The GUI application must be generated on Windows in order that the final executa
 
 ## Setup
 
-To use this package, you should first set up a virtual environment:
+To use this package, you should first set up a virtual environment: 
 
 ```bash
 python3 -m venv venv
