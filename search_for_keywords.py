@@ -144,7 +144,14 @@ def loop_files_search_keywords(filepaths, keywords):
         file = fitz.open(filepath)
         pdf_words = {}
         for page in file:
-            pdf_words[page.number] = sorted(list(page.get_text("words")), key=lambda word: [word[1], word[0]])
+            page_words = sorted(list(page.get_text("words")), key=lambda word: [word[1], word[0]])
+            try:
+                if (page_words[-1][1]-page_words[-2][3]) > 2*(page_words[-2][3]-page_words[-2][1]):
+                    if int(page_words[-1][4].strip()):
+                        page_words = page_words[:-1]
+            except Exception as err:
+                continue
+            pdf_words[page.number] = page_words
 
         # Search for keywords using PyMuPDF and save to keyword_results
         file_results = []
@@ -179,12 +186,14 @@ def loop_files_search_keywords(filepaths, keywords):
 
                         # Get words either side of the target keyword
                         count_words_before = 0
+                        first_word = pdf_words[page.number][istart]
                         for word in reversed(pdf_words[page.number][:istart]):
                             first_word = word
                             count_words_before += len(word[4].replace('\xa0', ' ').strip().split())
                             if count_words_before >= word_pad:
                                 break
                         count_words_after = 0
+                        last_word = pdf_words[page.number][iend]
                         for word in pdf_words[page.number][iend+1:]:
                             last_word = word
                             count_words_after += len(word[4].replace('\xa0', ' ').strip().split())
