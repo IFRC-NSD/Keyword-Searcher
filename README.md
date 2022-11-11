@@ -41,7 +41,7 @@ To verify that the installation went well, show the installed packages with ```p
 For testing and debugging, the GUI application can be started by running the ```search_for_keywords.py``` script from a Windows command prompt:
 
 ```bash
-python .\search_for_keywords.py
+python .\src\search_for_keywords.py
 ```
 
 ### Generating and running the GUI application
@@ -49,7 +49,7 @@ python .\search_for_keywords.py
 To generate the GUI application, [PyInstaller](https://pyinstaller.org/en/stable/index.html) can be used (note this must be run on Windows so that the final executable can be run on Windows):
 
 ```bash
-.\venv\Scripts\pyinstaller --noconsole --add-data "static/*;static/" --distpath ..\ --name "IFRC Keyword Searcher" .\search_for_keywords.py
+.\venv\Scripts\pyinstaller --noconsole --add-data "static/*;static/" --distpath ..\ --name "IFRC Keyword Searcher" .\src\search_for_keywords.py
 ```
 - ```.\venv\Scripts\pyinstaller``` path to pyinstaller in the virtual environment
 - ```--noconsole``` does not open a console when the executable is run, only the application

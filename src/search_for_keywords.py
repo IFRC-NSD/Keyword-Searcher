@@ -1,6 +1,8 @@
 import os
 import pathlib
 import PySimpleGUI as sg
+import settings
+from document_searcher import DocumentSearcher
 """
 GUI application to search for keywords in IFRC documents.
 """
@@ -9,7 +11,7 @@ GUI application to search for keywords in IFRC documents.
 """
 Define the window layout
 """
-CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sg.change_look_and_feel('Default1')
 new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-', expand_x=True, expand_y=True)
@@ -21,7 +23,7 @@ layout = [
     [
         sg.Column([
             [
-                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_logo.png')),
+                sg.Image(os.path.join(PROJECT_DIR, 'static/ifrc_logo.png')),
                 sg.VSeparator(),
                 sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
             ],
@@ -70,7 +72,7 @@ window = sg.Window('IFRC Keyword Searcher',
                    return_keyboard_events=True,
                    finalize=True,
                    resizable=True,
-                   icon=os.path.join(CURRENT_DIR, 'static/icon.ico'))
+                   icon=os.path.join(PROJECT_DIR, 'static/icon.ico'))
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
@@ -96,157 +98,11 @@ def highlight_document(file, keyword_instances):
             file[pageno].add_highlight_annot(inst)
     return file
 
-# Loop through files in a folder and search for keywords
-def loop_files_search_keywords(filepaths, keywords):
-    """
-    Loop through a list of files (with paths) and search for keywords in each document.
-
-    Convert to PDF if necessary.
-
-    Parameters
-    ----------
-    filepaths : list (required)
-        List of filepaths to search. Keyword searching will be run on each file.
-
-    keywords : list (required)
-        The keywords to search for.
-    """
-    # Get global variables
-    global searching
-    global keyword_results
-    global keyword_instances
-    progress_bar = window['progress']
-    percent = window['Percent']
-    results_summary_text = window['-RESULTS SUMMARY-']
-
-    # Loop through the files in the folder
-    keyword_instances = {}
-    for i, filepath in enumerate(filepaths):
-        filename = os.path.basename(filepath)
-        keyword_instances[filename] = {}
-
-        # Break if the search has been stopped
-        if not searching:
-            break
-
-        # Check the file extension and if it is not a pdf, skip and print a warning
-        file_extension = pathlib.Path(filename).suffix
-        if file_extension != '.pdf':
-            warning_text = window['-SEARCH WARNING-']
-            warning_message = f'Skipping file {filename} as it is not a PDF.'
-            if warning_text.get():
-                warning_message = f'{warning_text.get()}\n{warning_message}'
-            warning_text.update(value=warning_message, visible=True)
-            window.refresh()
-            continue
-
-        # Open the file and extract words with positions
-        file = fitz.open(filepath)
-        pdf_words = {}
-        for page in file:
-            page_words = sorted(list(page.get_text("words")), key=lambda word: [word[1], word[0]])
-            try:
-                if (page_words[-1][1]-page_words[-2][3]) > 2*(page_words[-2][3]-page_words[-2][1]):
-                    if int(page_words[-1][4].strip()):
-                        page_words = page_words[:-1]
-            except Exception as err:
-                continue
-            pdf_words[page.number] = page_words
-
-        # Search for keywords using PyMuPDF and save to keyword_results
-        file_results = []
-        for pageno, page in enumerate(file):
-            keyword_instances[filename][pageno] = []
-            for keyword in keywords:
-                instances = page.search_for(keyword)
-                if instances:
-                    keyword_instances[filename][pageno] += instances
-
-                    # Loop through instances to extract information
-                    for instance in instances:
-
-                        # Find the word containing the instance start and the word containing the instance end
-                        istart = iend = None
-                        for j, word in enumerate(pdf_words[page.number]):
-                            if (istart is not None) and (iend is not None): break
-                            if istart is None:
-                                if (word[1] == instance[1]) and (word[0] <= instance[0]) and (word[2] >= instance[0]):
-                                    istart = j
-                            if iend is None:
-                                if (word[3] == instance[3]) and (word[0] <= instance[2]) and (word[2] >= instance[2]):
-                                    iend = j
-
-                        # Set the word padding based on the user input
-                        try:
-                            word_pad = int(values['-SET WORD PAD-'])
-                            sg.user_settings_set_entry('-LAST WORD PAD-', word_pad)
-                        except Exception as err:
-                            word_pad = 10
-                            window['-SET WORD PAD-'].update(10)
-
-                        # Get words either side of the target keyword
-                        count_words_before = 0
-                        first_word = pdf_words[page.number][istart]
-                        for word in reversed(pdf_words[page.number][:istart]):
-                            first_word = word
-                            count_words_before += len(word[4].replace('\xa0', ' ').strip().split())
-                            if count_words_before >= word_pad:
-                                break
-                        count_words_after = 0
-                        last_word = pdf_words[page.number][iend]
-                        for word in pdf_words[page.number][iend+1:]:
-                            last_word = word
-                            count_words_after += len(word[4].replace('\xa0', ' ').strip().split())
-                            if count_words_after >= word_pad:
-                                break
-                        text_block = page.get_textbox((0, first_word[1], page.rect.width, last_word[3]))
-
-                        # Get overflow words on previous and next page
-                        if (count_words_before<word_pad) and page.number > 0:
-                            prev_page = file[page.number-1]
-                            words_prev_page = pdf_words[page.number-1][count_words_before-word_pad:]
-                            text_block_prev_page = prev_page.get_textbox((0, words_prev_page[0][1], prev_page.rect.width, words_prev_page[-1][3]))
-                            text_block_prev_page = ' '.join(text_block_prev_page.replace('\xa0', ' ').strip().split()[count_words_before-word_pad:])
-                            text_block = text_block_prev_page + '\n\n' + text_block
-                        if (count_words_after<word_pad) and (page.number < len(file)-1):
-                            next_page = file[page.number+1]
-                            words_next_page = pdf_words[page.number+1][:word_pad-count_words_after]
-                            text_block_next_page = next_page.get_textbox((0, words_next_page[0][1], next_page.rect.width, words_next_page[-1][3]))
-                            text_block_next_page = ' '.join(text_block_next_page.replace('\xa0', ' ').strip().split()[:word_pad-count_words_after])
-                            text_block = text_block + '\n\n' + text_block_next_page
-
-                        # Remove funny characters
-                        text_block = text_block.replace('\xa0', ' ').replace('\uf0b7 \n', ' - ').strip()
-
-                        # Add results to be displayed in the table
-                        file_results.append([filename, pageno+1, keyword, text_block])
-
-        file.close()
-
-        # Print the results to the table
-        if file_results:
-            results_summary['keywords'] += len(file_results)
-            results_summary['documents'] += 1
-            keyword_results += file_results
-            results_summary_text.update(value=f'{results_summary["keywords"]} keywords found in {results_summary["documents"]} documents')
-
-        # Update the progress bar
-        percent_completed = 100*(i+1)/len(files_to_search)
-        percent.update(value=f'{round(percent_completed, 1)} %')
-        progress_bar.update_bar(percent_completed)
-
-    # Update the table and set to not searching
-    searching = False
-    window['-RESULTS TABLE-'].update(keyword_results)
-    window['-SEARCH FOR KEYWORDS-'].update('Search')
-
 
 """
 Create an event loop
 """
 # Create the event loop
-keyword_results = keyword_instances = None
-searching = False
 search_folder = search_keywords = None
 doc_viewer_hover = False
 display_lists = []
@@ -254,13 +110,15 @@ view_doc_viewer = False
 open_filename = None
 temp_dir = None
 
+settings.init()
+
 
 while True:
     event, values = window.read()
     update_page = False
 
     if event == sg.WIN_CLOSED:
-        searching = False
+        settings.searching = False
         break
 
     # Clear the search documents folder history
@@ -289,14 +147,14 @@ while True:
             continue
 
         # If searching already, then cancel the search
-        if searching:
-            searching = False
+        if settings.searching:
+            settings.searching = False
             window['-SEARCH FOR KEYWORDS-'].update('Search')
 
         # Else begin searching
         else:
             window['-SEARCH ERROR-'].update(value='')
-            searching = True
+            settings.searching = True
             open_filename = open_page = open_file = None # Refresh to set everything as closed
             if view_doc_viewer:
                 view_doc_viewer = False
@@ -305,8 +163,6 @@ while True:
             window['-SEARCH WARNING-'].update(visible=False, value='')
             window['-SAVE MESSAGE-'].update(visible=False, value='')
             window['-SEARCH FOR KEYWORDS-'].update('Cancel')
-            keyword_results = []
-            results_summary = {'keywords': 0, 'documents': 0}
             window['-RESULTS TABLE-'].update([[]])
             window['-RESULTS SUMMARY-'].update(value=f'0 keywords found in 0 documents')
             window['-TEXTBLOCK-'].update(visible=False, value='')
@@ -316,43 +172,51 @@ while True:
             sg.user_settings_set_entry('-foldernames-', list(set(sg.user_settings_get_entry('-foldernames-', []) + [search_folder, ])))
             sg.user_settings_set_entry('-last foldername-', search_folder)
 
+            # Set the word padding based on the user input
+            try:
+                word_pad = int(values['-SET WORD PAD-'])
+                sg.user_settings_set_entry('-LAST WORD PAD-', word_pad)
+            except Exception as err:
+                word_pad = 10
+                window['-SET WORD PAD-'].update(10)
+
             # Loop through files in the folder and search for keywords
             files_to_search = sorted(os.listdir(search_folder))
             filepaths_to_search = [os.path.join(search_folder, filename) for filename in files_to_search]
             import fitz
             from threading import Thread
-            thread = Thread(target=loop_files_search_keywords, args=(filepaths_to_search, keywords))
+            thread = Thread(target=DocumentSearcher().search_for_keywords, args=(filepaths_to_search, keywords, word_pad, window))
             thread.start()
 
     # Export the results or save all documents containing keywords
     elif event=='-EXPORT RESULTS-':
         export_filename = values['-EXPORT RESULTS-']
         if export_filename:
-            if keyword_results:
+            if settings.keyword_results:
                 import csv
                 with open(export_filename, 'w', newline='',  encoding='utf-8') as f:
                     writer = csv.writer(f)
                     writer.writerow(results_headers)
-                    writer.writerows(keyword_results)
+                    writer.writerows(settings.keyword_results)
                 window['-SAVE MESSAGE-'].update(value='Results saved successfully', visible=True)
     elif event=='-SAVE KEYWORD DOCUMENTS-':
         export_foldername = values['-SAVE KEYWORD DOCUMENTS-']
         if export_foldername:
-            if keyword_instances is not None:
-                if keyword_instances.keys():
+            if settings.keyword_instances is not None:
+                if settings.keyword_instances.keys():
                     # Loop through the documents containing keywords, applying highlighting, and save
-                    for document_name in keyword_instances.keys():
+                    for document_name in settings.keyword_instances.keys():
                         keyword_document = fitz.open(os.path.join(search_folder, document_name))
-                        keyword_document = highlight_document(keyword_instances=keyword_instances[document_name], file=keyword_document)
+                        keyword_document = highlight_document(keyword_instances=settings.keyword_instances[document_name], file=keyword_document)
                         keyword_document.save(os.path.join(export_foldername, document_name))
                     window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
 
     # Display PDFs with keyword when clicked on in table
     elif event=='-RESULTS TABLE-':
-        if keyword_results and values[event]:
+        if settings.keyword_results and values[event]:
 
             # Get the filename, keyword, and page from the selected row
-            selected_row = keyword_results[values[event][0]]
+            selected_row = settings.keyword_results[values[event][0]]
             selected_filename = selected_row[0]
             new_page = selected_row[1]-1
             selected_keyword = selected_row[2]
@@ -376,20 +240,20 @@ while True:
                 window['-TOTAL PAGES-'].update(f'Total pages: {total_pages}')
 
                 # Add highlighting found by previous keyword searching to each page in the file
-                open_file = highlight_document(keyword_instances=keyword_instances[selected_filename],
+                open_file = highlight_document(keyword_instances=settings.keyword_instances[selected_filename],
                                                file=open_file)
 
     # Double clicking a row in the results table should open the file
     elif event in('-RESULTS TABLE-_double_click', '-RESULTS TABLE-_enter'):
-        if keyword_results and values['-RESULTS TABLE-']:
+        if settings.keyword_results and values['-RESULTS TABLE-']:
 
             # Get information on the selected row from the table
-            selected_row = keyword_results[values['-RESULTS TABLE-'][0]]
+            selected_row = settings.keyword_results[values['-RESULTS TABLE-'][0]]
             selected_filename = selected_row[0]
             selected_page = selected_row[1]-1
 
             # Open the document, apply highlighting, and open
-            highlighted_doc = highlight_document(keyword_instances=keyword_instances[selected_filename],
+            highlighted_doc = highlight_document(keyword_instances=settings.keyword_instances[selected_filename],
                                                  file=fitz.open(os.path.join(search_folder, selected_filename)))
             import tempfile
             if temp_dir is None:
