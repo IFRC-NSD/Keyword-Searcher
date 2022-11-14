@@ -23,7 +23,7 @@ layout = [
     [
         sg.Column([
             [
-                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_logo.png')),
+                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_nsd_logo.png')),
                 sg.VSeparator(),
                 sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
             ],
@@ -72,7 +72,7 @@ window = sg.Window('IFRC Keyword Searcher',
                    return_keyboard_events=True,
                    finalize=True,
                    resizable=True,
-                   icon=os.path.join(CURRENT_DIR, 'static/icon.ico'))
+                   icon=os.path.join(CURRENT_DIR, 'static/ifrc_nsd_logo.ico'))
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
