@@ -172,16 +172,24 @@ class Document:
         doc_words : dict
             List of fitz word objects for each page of the document.
         """
+        ifrc_document_security_words = ['public', 'restricted', 'internal', 'confidential', 'highly confidential']
         doc_words = {}
         for page in self.doc:
             page_words = sorted(list(page.get_text("words")), key=lambda word: [word[1], word[0]])
             # Remove page numbers: if the last word is a long way below the previous word and an integer
-            try:
-                if (page_words[-1][1]-page_words[-2][3]) > 2*(page_words[-2][3]-page_words[-2][1]):
-                    if int(page_words[-1][4].strip()):
+            if (page_words[-1][1]-page_words[-2][3]) > 2*(page_words[-2][3]-page_words[-2][1]):
+                last_word = page_words[-1][4].strip()
+                try:
+                    if int(last_word):
                         page_words = page_words[:-1]
-            except ValueError as err:
-                pass # Pass in the case that the last word is not a number
+                except ValueError as err: # The last word is not a number
+                    if str(last_word).lower() in ifrc_document_security_words:
+                        second_last_word = page_words[-2][4].strip()
+                        try: # The second last word is not a number
+                            if int(second_last_word):
+                                page_words = page_words[:-2]
+                        except ValueError as err:
+                            pass
             doc_words[page.number] = page_words
 
         return doc_words
