@@ -92,4 +92,4 @@ class DocumentSearcher:
         # Once searching has finished, update the results table and set to not searching
         settings.searching = False
         window['-SEARCH FOR KEYWORDS-'].update('Search')
-        window['-RESULTS TABLE-'].update(settings.keyword_results)
+        window['-RESULTS TABLE-'].update([item[:4] for item in settings.keyword_results])

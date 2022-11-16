@@ -228,6 +228,11 @@ while True:
                 # Add highlighting found by previous keyword searching to each page in the file
                 open_file = doc.highlight_doc(page_rects=settings.keyword_instances[selected_filename])
 
+            # Update the position
+            keyword_position = selected_row[4][1]
+            page_height = open_file[new_page].rect.height
+            window["-DOC VIEWER COLUMN-"].Widget.canvas.yview_moveto(keyword_position/page_height)
+
     # Double clicking a row in the results table should open the file
     elif event in('-RESULTS TABLE-_double_click', '-RESULTS TABLE-_enter'):
         if settings.keyword_results and values['-RESULTS TABLE-']:

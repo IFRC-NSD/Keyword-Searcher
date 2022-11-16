@@ -85,7 +85,11 @@ class Document:
                         text_block = self.tidy_text(text_block)
 
                         # Add results to be displayed in the table
-                        doc_results.append([self.filename, pageno+1, keyword, text_block])
+                        doc_results.append([self.filename,
+                                            pageno+1,
+                                            keyword,
+                                            text_block,
+                                            instance])
 
         return doc_results, doc_instances
 
