@@ -1,32 +1,20 @@
-import sys
 import os
 import pathlib
 import PySimpleGUI as sg
 import settings
-import logging
 from document_searcher import DocumentSearcher
 from document import Document
 """
 GUI application to search for keywords in IFRC documents.
 """
 # Set up logging
-logging.basicConfig(filename='log.log',
-                    filemode='a',
-                    encoding='utf-8',
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
-# Handle uncaught exceptions
-def handle_exception(exc_type, exc_value, exc_traceback):
-    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-sys.excepthook = handle_exception
+logger = settings.get_logger("base")
 
 
 """
 Define the window layout
 """
-logging.info('Program starting')
-CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+logger.info('Program starting')
 sg.change_look_and_feel('Default1')
 new_page = 0
 image_elem = sg.Image(key='-DOC VIEWER-', expand_x=True, expand_y=True)
@@ -38,7 +26,7 @@ layout = [
     [
         sg.Column([
             [
-                sg.Image(os.path.join(CURRENT_DIR, 'static/ifrc_nsd_logo.png')),
+                sg.Image(os.path.join(settings.CURRENT_DIR, 'static/ifrc_nsd_logo.png')),
                 sg.VSeparator(),
                 sg.Text('Keyword Searcher', key='-TITLE-', font = ('OpenSans-Regular', 16), text_color='Black')
             ],
@@ -87,7 +75,7 @@ window = sg.Window('IFRC Keyword Searcher',
                    return_keyboard_events=True,
                    finalize=True,
                    resizable=True,
-                   icon=os.path.join(CURRENT_DIR, 'static/ifrc_nsd_logo.ico'))
+                   icon=os.path.join(settings.CURRENT_DIR, 'static/ifrc_nsd_logo.ico'))
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
 window['-DOC VIEWER-'].bind('<Leave>', '_away')
@@ -143,13 +131,13 @@ while True:
 
         # If searching already, then cancel the search
         if settings.searching:
-            logging.info("Keyword searching cancelling")
+            logger.info("Keyword searching cancelling")
             settings.searching = False
             window['-SEARCH FOR KEYWORDS-'].update('Search')
 
         # Else begin searching
         else:
-            logging.info("Keyword searching starting")
+            logger.info("Keyword searching starting")
             window['-SEARCH ERROR-'].update(value='')
             settings.searching = True
             open_filename = open_page = open_file = None # Refresh to set everything as closed
@@ -181,7 +169,7 @@ while True:
             files_to_search = sorted(os.listdir(search_folder))
             filepaths_to_search = [os.path.join(search_folder, filename) for filename in files_to_search]
             window['-RESULTS SUMMARY-'].update(value=f'Found {len(filepaths_to_search)} documents to search')
-            logging.info(f"Found {len(filepaths_to_search)} files to search")
+            logger.info(f"Found {len(filepaths_to_search)} files to search")
             import fitz
             from threading import Thread
             thread = Thread(target=DocumentSearcher().search_for_keywords, args=(filepaths_to_search, keywords, word_pad, window))

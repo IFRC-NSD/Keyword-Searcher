@@ -1,29 +1,20 @@
 """
 Document class
 """
-import sys
 import settings
 from document import Document
-import logging
 
 # Set up logging
-logging.basicConfig(filename='log.log',
-                    filemode='a',
-                    encoding='utf-8',
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
-# Handle uncaught exceptions
-def handle_exception(exc_type, exc_value, exc_traceback):
-    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-sys.excepthook = handle_exception
+logger = settings.get_logger("document_searcher")
 
 
 class DocumentSearcher:
     """
+    Module to loop through a given list of documents, search for keywords, and print the output to the window.
     """
     def __init__(self):
         pass
+
 
     def search_for_keywords(self, filepaths, keywords, word_pad, window):
         """
@@ -76,7 +67,7 @@ class DocumentSearcher:
                     results, instances = doc.search_for_keywords(keywords=keywords, word_pad=word_pad)
                     doc.close()
                 except Exception as err:
-                    logging.exception('Error searching for keywords in document')
+                    logger.exception('Error searching for keywords in document')
                 if settings.keyword_results is None:
                     settings.keyword_results = results
                 else:
@@ -91,7 +82,7 @@ class DocumentSearcher:
 
             # Catch any exceptions and log to the log file
             except Exception as err:
-                logging.exception('Error searching keywords in documents')
+                logger.exception('Error searching keywords in documents')
 
             # Update the progress bar
             percent_completed = 100*(i+1)/len(filepaths)

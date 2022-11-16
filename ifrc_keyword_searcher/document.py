@@ -1,19 +1,10 @@
-import sys
 import os
 import pathlib
 import fitz
-import logging
+import settings
+
 # Set up logging
-logging.basicConfig(filename='log.log',
-                    filemode='a',
-                    encoding='utf-8',
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
-# Handle uncaught exceptions
-def handle_exception(exc_type, exc_value, exc_traceback):
-    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-sys.excepthook = handle_exception
+settings.get_logger("document")
 
 class Document:
     """
