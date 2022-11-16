@@ -163,27 +163,37 @@ class Document:
         doc_words : dict
             List of fitz word objects for each page of the document.
         """
-        ifrc_document_security_words = ['public', 'restricted', 'internal', 'confidential', 'highly confidential']
         doc_words = {}
         for page in self.doc:
             page_words = sorted(list(page.get_text("words")), key=lambda word: [word[1], word[0]])
             # Remove page numbers: if the last word is a long way below the previous word and an integer
             if (page_words[-1][1]-page_words[-2][3]) > 2*(page_words[-2][3]-page_words[-2][1]):
-                last_word = page_words[-1][4].strip()
-                try:
-                    if int(last_word):
+                if self.is_page_number(page_words[-1][4]):
+                    page_words = page_words[:-1]
+                    if self.is_page_number(page_words[-1][4]):
                         page_words = page_words[:-1]
-                except ValueError as err: # The last word is not a number
-                    if str(last_word).lower() in ifrc_document_security_words:
-                        second_last_word = page_words[-2][4].strip()
-                        try: # The second last word is not a number
-                            if int(second_last_word):
-                                page_words = page_words[:-2]
-                        except ValueError as err:
-                            pass
             doc_words[page.number] = page_words
 
         return doc_words
+
+
+    def is_page_number(self, text):
+        """
+        Check if some text is a page number or is an IFRC security footer.
+        """
+        # Check if it is an IFRC security word
+        ifrc_document_security_words = ['public', 'restricted', 'internal', 'confidential', 'highly confidential']
+        if str(text).strip().lower() in ifrc_document_security_words:
+            return True
+
+        # Check if it could be a page number
+        try:
+            page_no = int(text)
+            return True
+        except ValueError as err:
+            return False
+
+        return False
 
 
     def tidy_text(self, txt):
