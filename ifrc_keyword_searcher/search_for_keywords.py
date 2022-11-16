@@ -1,16 +1,31 @@
+import sys
 import os
 import pathlib
 import PySimpleGUI as sg
 import settings
+import logging
 from document_searcher import DocumentSearcher
 from document import Document
 """
 GUI application to search for keywords in IFRC documents.
 """
+# Set up logging
+logging.basicConfig(filename='log.log',
+                    filemode='a',
+                    encoding='utf-8',
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO)
+# Handle uncaught exceptions
+def handle_exception(exc_type, exc_value, exc_traceback):
+    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+sys.excepthook = handle_exception
+
 
 """
 Define the window layout
 """
+logging.info('Program starting')
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 sg.change_look_and_feel('Default1')
 new_page = 0
@@ -128,11 +143,13 @@ while True:
 
         # If searching already, then cancel the search
         if settings.searching:
+            logging.info("Keyword searching cancelling")
             settings.searching = False
             window['-SEARCH FOR KEYWORDS-'].update('Search')
 
         # Else begin searching
         else:
+            logging.info("Keyword searching starting")
             window['-SEARCH ERROR-'].update(value='')
             settings.searching = True
             open_filename = open_page = open_file = None # Refresh to set everything as closed
@@ -163,6 +180,8 @@ while True:
             # Loop through files in the folder and search for keywords
             files_to_search = sorted(os.listdir(search_folder))
             filepaths_to_search = [os.path.join(search_folder, filename) for filename in files_to_search]
+            window['-RESULTS SUMMARY-'].update(value=f'Found {len(filepaths_to_search)} documents to search')
+            logging.info(f"Found {len(filepaths_to_search)} files to search")
             import fitz
             from threading import Thread
             thread = Thread(target=DocumentSearcher().search_for_keywords, args=(filepaths_to_search, keywords, word_pad, window))
@@ -282,6 +301,5 @@ while True:
             image_elem.update(data=pix.tobytes(output='png'))
             open_page = new_page # Set that the currently open page is the new page
             goto.update(str(new_page + 1))
-
 
 window.close()

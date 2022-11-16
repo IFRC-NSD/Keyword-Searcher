@@ -4,3 +4,4 @@ dist/
 *.spec
 venv/
 *.exe
+*.log

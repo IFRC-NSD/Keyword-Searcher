@@ -1,6 +1,19 @@
+import sys
 import os
 import pathlib
 import fitz
+import logging
+# Set up logging
+logging.basicConfig(filename='log.log',
+                    filemode='a',
+                    encoding='utf-8',
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO)
+# Handle uncaught exceptions
+def handle_exception(exc_type, exc_value, exc_traceback):
+    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+sys.excepthook = handle_exception
 
 class Document:
     """
@@ -167,8 +180,8 @@ class Document:
                 if (page_words[-1][1]-page_words[-2][3]) > 2*(page_words[-2][3]-page_words[-2][1]):
                     if int(page_words[-1][4].strip()):
                         page_words = page_words[:-1]
-            except Exception as err:
-                continue
+            except ValueError as err:
+                pass # Pass in the case that the last word is not a number
             doc_words[page.number] = page_words
 
         return doc_words
