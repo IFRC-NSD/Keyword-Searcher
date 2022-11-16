@@ -4,7 +4,7 @@ import fitz
 import settings
 
 # Set up logging
-settings.get_logger("document")
+logger = settings.get_logger("document")
 
 class Document:
     """
@@ -73,7 +73,7 @@ class Document:
                         if (word_count_left<word_pad) and pageno > 0:
                             word_count_prev_page, first_word_prev_page = self.iterate_words_limit(words=reversed(self.words[pageno-1]),
                                                                                                   limit=word_pad-word_count_left)
-                            text_block_prev_page = self.doc[pageno-1].get_textbox((0, first_word_prev_page[1], self.doc[pageno-1].rect.width, self.doc[pageno-1].rect.height))
+                            text_block_prev_page = self.doc[pageno-1].get_textbox((0, first_word_prev_page[1], self.doc[pageno-1].rect.width, self.words[pageno-1][-1][3]))
                             text_block = text_block_prev_page + '\n\n' + text_block
                         if (word_count_right<word_pad) and (pageno < self.total_pages-1):
                             word_count_next_page, last_word_next_page = self.iterate_words_limit(words=self.words[pageno+1],
