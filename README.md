@@ -67,7 +67,7 @@ You can add a ```--onefile``` which means everything is bundled into one executa
 The application can be run by double-clicking the executable ```IFRC Keyword Searcher.exe``` file. With the above configuration it can take up to 30 seconds to load (described more [below](#loading-time-and-windows-security)). Once loaded it should appear like this:
 
 <p align="center">
-  <img src="static/app_screenshot.png?raw=true" alt="IFRC Keyword Searcher GUI application screenshot"/>
+  <img src="ifrc_keyword_searcher/static/app_screenshot.png?raw=true" alt="IFRC Keyword Searcher GUI application screenshot"/>
 </p>
 
 ### Loading time and Windows security
