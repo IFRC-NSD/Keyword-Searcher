@@ -33,7 +33,7 @@ layout = [
             [sg.Text('Select a folder with documents to search')],
             [sg.Combo(sorted(sg.user_settings_get_entry('-foldernames-', [])), default_value=sg.user_settings_get_entry('-last foldername-', ''), size=(45, 1), key='-FOLDERNAME-')],
             [sg.FolderBrowse(target='-FOLDERNAME-'), sg.B('Clear History')],
-            [sg.Text('Enter keywords (one per line)')],
+            [sg.Text('Enter keywords (one per line)', pad=((5, 185), 3))],
             [sg.Multiline('\n'.join(sg.user_settings_get_entry('-keywords-', [])), size=(45, 5), key='-KEYWORDS-')],
             [sg.Text('Number of words as padding in results'), sg.InputText(10 if not sg.user_settings_get_entry('-LAST WORD PAD-') else sg.user_settings_get_entry('-LAST WORD PAD-'), size=(5, 1), key='-SET WORD PAD-')],
             [sg.Button('Search', key='-SEARCH FOR KEYWORDS-'), sg.Text('', key='-SEARCH ERROR-', text_color='red')],
@@ -55,7 +55,7 @@ layout = [
             sg.InputText('', do_not_clear=False, visible=False, key='-SAVE KEYWORD DOCUMENTS-', enable_events=True),
             sg.FolderBrowse('Save all documents containing keywords', target='-SAVE KEYWORD DOCUMENTS-')],
             [sg.Text('', key='-SAVE MESSAGE-', text_color='green')],
-        ], expand_y=True, expand_x=False, key='-SEARCH COLUMN-'),
+        ], expand_y=True, expand_x=False, key='-SEARCH COLUMN-', scrollable=True, vertical_scroll_only=True),
         sg.VSeparator(),
         sg.Column([
             [
