@@ -16,6 +16,7 @@ class Document:
         Path to the document.
     """
     def __init__(self, filepath):
+        self.filepath = filepath
         self.filename = os.path.basename(filepath)
         self.file_extension = pathlib.Path(self.filename).suffix
         self.doc = fitz.open(filepath)
@@ -88,7 +89,7 @@ class Document:
                             text_block = self.tidy_text(text_block)
 
                             # Add results to be displayed in the table
-                            doc_results.append([self.filename,
+                            doc_results.append([self.filepath,
                                                 pageno+1,
                                                 keyword,
                                                 text_block,

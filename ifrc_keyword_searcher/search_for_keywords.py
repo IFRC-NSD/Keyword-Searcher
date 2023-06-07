@@ -75,6 +75,7 @@ window = sg.Window('IFRC Keyword Searcher',
                    return_keyboard_events=True,
                    finalize=True,
                    resizable=True,
+                   size=(420,660),
                    icon=os.path.join(settings.CURRENT_DIR, 'static/ifrc_nsd_logo.ico'))
 window['-SET PAGE-'].bind("<Return>", "_enter")
 window['-DOC VIEWER-'].bind('<Enter>', '_hover')
@@ -90,7 +91,7 @@ search_folder = search_keywords = None
 doc_viewer_hover = False
 display_lists = []
 view_doc_viewer = False
-open_filename = None
+open_filepath = None
 temp_dir = None
 
 settings.init()
@@ -140,7 +141,7 @@ while True:
             logger.info("Keyword searching starting")
             window['-SEARCH ERROR-'].update(value='')
             settings.searching = True
-            open_filename = open_page = open_file = None # Refresh to set everything as closed
+            open_filepath = open_page = open_file = None # Refresh to set everything as closed
             if view_doc_viewer:
                 view_doc_viewer = False
                 window['-DOC VIEWER COLUMN-'].update(visible=view_doc_viewer)
@@ -165,17 +166,16 @@ while True:
                 word_pad = 10
                 window['-SET WORD PAD-'].update(10)
 
-            # Loop through files in the folder and search for keywords
-            files_to_search = sorted(os.listdir(search_folder))
-            filepaths_to_search = [os.path.join(search_folder, filename) for filename in files_to_search]
+            # Loop through files in the folder (recursively) and search for keywords
+            filepaths_to_search = [str(item) for item in sorted(list(pathlib.Path(search_folder).rglob("*.pdf"))) if os.path.isfile(item)]
             window['-RESULTS SUMMARY-'].update(value=f'Found {len(filepaths_to_search)} documents to search')
             logger.info(f"Found {len(filepaths_to_search)} files to search")
             import fitz
             from threading import Thread
-            thread = Thread(target=DocumentSearcher().search_for_keywords, args=(filepaths_to_search, keywords, word_pad, window))
+            thread = Thread(target=DocumentSearcher().search_for_keywords, args=(filepaths_to_search, search_folder, keywords, word_pad, window))
             thread.start()
 
-    # Export the results or save all documents containing keywords
+    # Export the results
     elif event=='-EXPORT RESULTS-':
         export_filename = values['-EXPORT RESULTS-']
         if export_filename:
@@ -186,15 +186,26 @@ while True:
                     writer.writerow(results_headers)
                     writer.writerows(settings.keyword_results)
                 window['-SAVE MESSAGE-'].update(value='Results saved successfully', visible=True)
+    
+    # Save all documents containing keywords
     elif event=='-SAVE KEYWORD DOCUMENTS-':
         export_foldername = values['-SAVE KEYWORD DOCUMENTS-']
         if export_foldername:
             if settings.keyword_instances is not None:
                 if settings.keyword_instances.keys():
+
                     # Loop through the documents containing keywords, applying highlighting, and save
-                    for document_name in settings.keyword_instances.keys():
-                        highlighted_doc = Document(filepath=os.path.join(search_folder, document_name)).highlight_doc(settings.keyword_instances[document_name])
-                        highlighted_doc.save(os.path.join(export_foldername, document_name))
+                    for document_path in settings.keyword_instances.keys():
+                        highlighted_doc = Document(filepath=os.path.join(search_folder, document_path)).highlight_doc(settings.keyword_instances[document_path])
+                        
+                        # Save the document in the same folder structure, creating folders if required
+                        path_components = os.path.normpath(document_path).split(os.sep)
+                        for i, dir in enumerate(path_components[:-1]):
+                            dir_path = os.path.join(export_foldername, *path_components[:i], dir)
+                            if not (os.path.exists(dir_path) and os.path.isdir(dir_path)):
+                                os.mkdir(dir_path)
+                        highlighted_doc.save(os.path.join(export_foldername, document_path))
+
                     window['-SAVE MESSAGE-'].update(value='Documents saved successfully', visible=True)
 
     # Display PDFs with keyword when clicked on in table
@@ -203,7 +214,7 @@ while True:
 
             # Get the filename, keyword, and page from the selected row
             selected_row = settings.keyword_results[values[event][0]]
-            selected_filename = selected_row[0]
+            selected_filepath = selected_row[0]
             new_page = selected_row[1]-1
             selected_keyword = selected_row[2]
 
@@ -211,22 +222,22 @@ while True:
             window['-TEXTBLOCK-'].update(selected_row[3], visible=True)
 
             # Clicking to open a NEW file: open the file with fitz and apply highlighting
-            if selected_filename!=open_filename:
+            if selected_filepath!=open_filepath:
                 update_page = True
                 if open_file: open_file.close()
 
                 # Open the file with fitz
-                doc = Document(filepath=os.path.join(search_folder, selected_filename))
+                doc = Document(filepath=os.path.join(search_folder, selected_filepath))
                 total_pages = doc.total_pages
-                open_filename = selected_filename
+                open_filepath = selected_filepath
                 display_lists = [None]*doc.total_pages
 
                 # Set the total pages text
-                window['-DOCUMENT NAME-'].update(f'{open_filename}')
+                window['-DOCUMENT NAME-'].update(f'{os.path.basename(open_filepath)}')
                 window['-TOTAL PAGES-'].update(f'Total pages: {doc.total_pages}')
 
                 # Add highlighting found by previous keyword searching to each page in the file
-                open_file = doc.highlight_doc(page_rects=settings.keyword_instances[selected_filename])
+                open_file = doc.highlight_doc(page_rects=settings.keyword_instances[selected_filepath])
 
             # Update the position
             keyword_position = selected_row[4][1]
@@ -239,15 +250,15 @@ while True:
 
             # Get information on the selected row from the table
             selected_row = settings.keyword_results[values['-RESULTS TABLE-'][0]]
-            selected_filename = selected_row[0]
+            selected_filepath = selected_row[0]
             selected_page = selected_row[1]-1
 
             # Open the document, apply highlighting, and open
-            highlighted_doc = Document(filepath=os.path.join(search_folder, selected_filename)).highlight_doc(page_rects=settings.keyword_instances[selected_filename])
+            highlighted_doc = Document(filepath=os.path.join(search_folder, selected_filepath)).highlight_doc(page_rects=settings.keyword_instances[selected_filepath])
             import tempfile
             if temp_dir is None:
                 temp_dir = tempfile.TemporaryDirectory()
-            temp_filepath = os.path.join(temp_dir.name, selected_filename)
+            temp_filepath = os.path.join(temp_dir.name, os.path.basename(selected_filepath))
             highlighted_doc.save(temp_filepath)
 
             # Try to open the file at the right page
@@ -274,7 +285,7 @@ while True:
         doc_viewer_hover = False
 
     # Update the document page if required
-    if open_filename is not None:
+    if open_filepath is not None:
         if new_page > total_pages-1:
             new_page = total_pages-1
         elif new_page < 0:

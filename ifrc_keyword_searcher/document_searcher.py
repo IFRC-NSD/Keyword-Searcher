@@ -1,6 +1,7 @@
 """
 Document class
 """
+import os
 import settings
 from document import Document
 
@@ -16,7 +17,7 @@ class DocumentSearcher:
         pass
 
 
-    def search_for_keywords(self, filepaths, keywords, word_pad, window):
+    def search_for_keywords(self, filepaths, search_folder, keywords, word_pad, window):
         """
         Loop through a list of files (with paths) and search for keywords in each document.
 
@@ -27,6 +28,9 @@ class DocumentSearcher:
         filepaths : list (required)
             List of filepaths to search. Keyword searching will be run on each file.
 
+        search_folder : str (required)
+            Path to the folder which is being searched, which contains the filepaths.
+        
         keywords : list (required)
             The keywords to search for.
 
@@ -54,7 +58,7 @@ class DocumentSearcher:
                 doc = Document(filepath=filepath)
                 if doc.file_extension != '.pdf':
                     warning_text = window['-SEARCH WARNING-']
-                    warning_message = f'Skipping file {filename} as it is not a PDF.'
+                    warning_message = f'Skipping file {filepath} as it is not a PDF.'
                     if warning_text.get():
                         warning_message = f'{warning_text.get()}\n{warning_message}'
                     warning_text.update(value=warning_message, visible=True)
@@ -68,11 +72,15 @@ class DocumentSearcher:
                     doc.close()
                 except Exception as err:
                     logger.exception('Error searching for keywords in document')
+
+                # Update the global keyword results variable. Change the full path to a relative path to display in the results.
+                for result in results:
+                    result[0] = os.path.relpath(result[0], search_folder)
                 if settings.keyword_results is None:
                     settings.keyword_results = results
                 else:
                     settings.keyword_results += results
-                settings.keyword_instances[doc.filename] = instances
+                settings.keyword_instances[os.path.relpath(filepath, search_folder)] = instances
 
                 # Update the progress message
                 if results:
